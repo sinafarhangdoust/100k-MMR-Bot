@@ -1,11 +1,9 @@
 import os
 import logging
 import subprocess
+from custom_logger.custom_logger import ChatDota2Logger
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
-
+logger = ChatDota2Logger()
 
 def download_file(
     url: str,
