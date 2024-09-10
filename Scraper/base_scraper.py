@@ -1,10 +1,10 @@
-import logging
 import time
 from threading import Thread
 from typing import List
 
 from constants import DEFAULT_CHROME_OPTIONS, DEFAULT_CHROME_EXTENSIONS, ADBLOCK_EXTENSION_URL
 from FileDownloader.FileDownloader import download_file
+from custom_logger.custom_logger import ChatDota2Logger
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -13,9 +13,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.driver_cache import DriverCacheManager
 from selenium.webdriver.chrome.options import Options
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler())
+logger = ChatDota2Logger()
 
 
 class BaseScraper:
