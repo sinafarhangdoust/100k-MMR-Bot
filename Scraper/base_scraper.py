@@ -3,6 +3,9 @@ import time
 from threading import Thread
 from typing import List
 
+from constants import DEFAULT_CHROME_OPTIONS, DEFAULT_CHROME_EXTENSIONS, ADBLOCK_EXTENSION_URL
+from FileDownloader.FileDownloader import download_file
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -33,13 +36,6 @@ class BaseScraper:
         :param tab_check_duration: the duration to check to close any new tabs opened after the
         first lunch
         """
-        default_chrome_options = [
-            '--disable-search-engine-choice-screen',
-            '--start-maximized'
-        ]
-        default_chrome_extensions = [
-            '../chrome_extensions/ad_block_plus.crx'
-        ]
         # set the default driver validity for 14 days since daily
         # updates of the driver might not be particularly stable
         self.driver_cache_manager = DriverCacheManager(valid_range=14)
@@ -47,8 +43,14 @@ class BaseScraper:
         self.service = Service(self.chrome_driver_manager.install())
         self.chrome_options = Options()
         # set the default chrome options and extensions
-        self._set_chrome_options(chrome_options=default_chrome_options)
-        self._set_chrome_extensions(chrome_extensions=default_chrome_extensions)
+        self._set_chrome_options(chrome_options=DEFAULT_CHROME_OPTIONS)
+        # download the needed extension
+        download_file(
+            url=ADBLOCK_EXTENSION_URL,
+            output_dir='../chrome_extensions',
+            file_name='ad_block_plus.crx'
+        )
+        self._set_chrome_extensions(chrome_extensions=DEFAULT_CHROME_EXTENSIONS)
         # set the custom chrome options and extensions
         if chrome_options is not None:
             self._set_chrome_options(chrome_options=chrome_options)
