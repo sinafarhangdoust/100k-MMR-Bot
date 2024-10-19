@@ -1,6 +1,7 @@
 import time
 from urllib.parse import urljoin
 from typing import Tuple, List, Dict
+import re
 
 from base_scraper import BaseScraper
 from hero import Hero, Ability
@@ -27,6 +28,7 @@ class HeroScraper(BaseScraper):
 
         self.main_page_elem = None
         self.basic_stats_elem = None
+        self.hero_summary_elems = None
         self.lore_summary_elem = None
         self.ability_elems = None
         self.hero = None
@@ -95,6 +97,23 @@ class HeroScraper(BaseScraper):
         )
         self.basic_stats_elem = basic_stats_elem
         return basic_stats_elem
+
+    def get_hero_summary_elem(self) -> WebElement:
+        """
+        Retrieves the hero summary element that includes the summary information of the hero
+        :return:
+        """
+        if self.main_page_elem is None:
+            self.get_main_page_elem()
+
+        hero_summary_elems = WebDriverWait(self.main_page_elem, 10).until(
+            EC.presence_of_element_located(
+                (By.CLASS_NAME,
+                 "table-responsive")
+            )
+        )
+        self.hero_summary_elems = hero_summary_elems
+        return hero_summary_elems
 
     def get_hero_lore_summary_elem(self) -> WebElement:
         """
@@ -235,13 +254,76 @@ class HeroScraper(BaseScraper):
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Projectile Speed':
                     projectile_speed = stat_elem.find_element(By.TAG_NAME, 'a').text.strip()
                     basic_stats['projectile_speed'] = projectile_speed
-                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Attack Range':
-                    print()
+                # TODO: shoould be handled for the range heroes as well
+                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Melee':
+                    if stat_elem.text.strip():
+                        attack_range, acquisition_range = stat_elem.text.strip().split('\nAttack Range\n')
+                        basic_stats['attack_range'] = attack_range
+                        basic_stats['acquisition_range'] = acquisition_range
+                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Attack Speed':
+                    attack_speed = stat_elem.find_element(By.CSS_SELECTOR, 'b').text.strip()
+                    basic_stats['attack_speed'] = attack_speed
+                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Attack Animation':
+                    attack_animation = stat_elem.text.strip().split('\nAnimation')[0]
+                    basic_stats['attack_animation'] = attack_animation
+                elif 'Move Speed' in stat_elem.text:
+                    day_movement_speed = stat_elem.text.strip().split('\nMove Speed')[0].split('/')[0].strip()
+                    night_movement_speed = stat_elem.text.strip().split('\nMove Speed')[0].split('/')[1].strip()
+                    basic_stats['day_movement_speed'] = day_movement_speed
+                    basic_stats['night_movement_speed'] = night_movement_speed
+                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Turn Rate':
+                    turn_rate = stat_elem.text.strip().split('\nTurn Rate')[0].strip()
+                    basic_stats['turn_rate'] = turn_rate
+                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Collision Size':
+                    collision_size = stat_elem.text.strip().split('\nCollision Size')[0].strip()
+                    basic_stats['collision_size'] = collision_size
+                elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Bound Radius':
+                    bound_radius = stat_elem.text.strip().split('\nBound Radius')[0].strip()
+                    basic_stats['bound_radius'] = bound_radius
+                elif 'Vision Range' in stat_elem.text:
+                    day_vision_range = stat_elem.text.split('\nVision Range')[0].strip().split('/')[0].strip()
+                    night_vision_range = stat_elem.text.split('\nVision Range')[0].strip().split('/')[1].strip()
+                    basic_stats['day_vision_range'] = day_vision_range
+                    basic_stats['night_vision_range'] = night_vision_range
+            # TODO: Gib type, Released and Competitive Span can be extracted
             except NoSuchElementException:
                 logger.error('Could not find the desired element')
-        print()
 
+        return basic_stats
 
+    def process_hero_summary_elem(self) -> Dict:
+        """
+        Processes the hero summary elem and extracts the following information from it:
+        - Hero Summary
+        - Roles
+        - Complexity
+        - Adjectives
+
+        :return:
+        """
+        summary_info = {}
+        summary = ''
+        for i, elem in enumerate(self.hero_summary_elems.find_elements(By.CSS_SELECTOR, 'tr')):
+            if elem.text:
+                if 'Roles' in elem.text:
+                    roles = []
+                    for role_elem in elem.find_elements(By.TAG_NAME, 'a'):
+                        if role_elem.get_attribute("title") == 'Role':
+                            roles.append(role_elem.text.strip())
+                    summary_info['roles'] = roles
+                elif 'Complexity' in elem.text:
+                    complexity = str(len([cplx_elem for cplx_elem in elem.find_elements(By.CSS_SELECTOR, 'td')])) + '/3'
+                    summary_info['complexity'] = complexity
+                elif 'Adjectives' in elem.text:
+                    adjectives = elem.find_element(By.CSS_SELECTOR, 'td').text.split('\nLegs ')[0].split(',')
+                    num_legs = elem.find_element(By.CSS_SELECTOR, 'td').text.split('\nLegs ')[1]
+                    summary_info['adjectives'] = adjectives
+                    summary_info['num_legs'] = num_legs
+                else:
+                    summary += elem.text + '\n'
+
+        summary_info['summary'] = summary
+        return summary_info
 
     def process_hero_lore_summary_elem(self) -> Tuple[str, str]:
         """
@@ -297,7 +379,13 @@ class HeroScraper(BaseScraper):
         """
 
         self.get_hero_basic_stats_elem()
-        self.process_hero_basic_stats_elem()
+        basic_stats = self.process_hero_basic_stats_elem()
+        self.hero.basic_stats = basic_stats
+
+    def get_hero_summary_info(self):
+        self.get_hero_summary_elem()
+        summary_info = self.process_hero_summary_elem()
+        self.hero.summary_info = summary_info
 
     def scrape_hero_page(self, hero_name) -> Hero:
 
@@ -309,6 +397,8 @@ class HeroScraper(BaseScraper):
         self.get_main_page_elem()
         # get the hero basic stats elem
         self.get_hero_basic_stats()
+        # get the hero summary info
+        self.get_hero_summary_info()
         # get the hero lore summary elem
         self.get_hero_lore_summary()
 
