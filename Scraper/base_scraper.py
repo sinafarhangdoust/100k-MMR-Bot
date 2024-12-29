@@ -64,6 +64,7 @@ class BaseScraper:
         # close any extra tabs opened by the extensions
         self.tab_check_thread = Thread(target=self._periodic_tab_check)
         self.tab_check_thread.start()
+        self.tab_check_thread.join()
 
     def _set_chrome_options(
         self,
