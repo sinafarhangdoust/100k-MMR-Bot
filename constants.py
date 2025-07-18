@@ -25,3 +25,6 @@ HEROES = {
     MainAttributes.intel.value: [],
     MainAttributes.uni.value: []
 }
+
+with open("scraper_prompt.md") as f:
+    SCRAPER_SYSTEM_PROMPT = f.read()
