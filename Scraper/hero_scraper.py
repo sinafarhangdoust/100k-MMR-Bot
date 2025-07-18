@@ -1,10 +1,9 @@
 import time
 from urllib.parse import urljoin
 from typing import Tuple, List, Dict
-import re
 
 from base_scraper import BaseScraper
-from hero import Hero, Ability
+from hero import Hero
 
 from custom_logger.custom_logger import ChatDota2Logger
 
@@ -131,6 +130,21 @@ class HeroScraper(BaseScraper):
         self.lore_summary_elem = lore_page_elem
         return lore_page_elem
 
+    def get_hero_facet_elems(self) -> List[WebElement]:
+        """
+        Retrieves the element that has the facet information inside it
+        :return:
+        """
+        # if the main_page_elem is None retrieve it first
+        if self.main_page_elem is None:
+            self.get_main_page_elem()
+
+        hero_facet_elems = WebDriverWait(self.main_page_elem, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.facetBox[id]'))
+        )
+        self.hero_facet_elems = hero_facet_elems
+        return hero_facet_elems
+
     def get_hero_ability_elems(self) -> Tuple[List[WebElement], List[WebElement]]:
         """
         Retrieves the elements that has the ability of the hero information inside it, if there are
@@ -254,7 +268,7 @@ class HeroScraper(BaseScraper):
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Projectile Speed':
                     projectile_speed = stat_elem.find_element(By.TAG_NAME, 'a').text.strip()
                     basic_stats['projectile_speed'] = projectile_speed
-                # TODO: shoould be handled for the range heroes as well
+                # TODO: should be handled for the range heroes as well
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Melee':
                     if stat_elem.text.strip():
                         attack_range, acquisition_range = stat_elem.text.strip().split('\nAttack Range\n')
@@ -268,12 +282,13 @@ class HeroScraper(BaseScraper):
                     basic_stats['attack_animation'] = attack_animation
                 elif 'Move Speed' in stat_elem.text:
                     day_movement_speed = stat_elem.text.strip().split('\nMove Speed')[0].split('/')[0].strip()
-                    night_movement_speed = stat_elem.text.strip().split('\nMove Speed')[0].split('/')[1].strip()
+                    # night_movement_speed = stat_elem.text.strip().split('\nMove Speed')[0].split('/')[1].strip()
                     basic_stats['day_movement_speed'] = day_movement_speed
-                    basic_stats['night_movement_speed'] = night_movement_speed
+                    # basic_stats['night_movement_speed'] = night_movement_speed
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Turn Rate':
-                    turn_rate = stat_elem.text.strip().split('\nTurn Rate')[0].strip()
-                    basic_stats['turn_rate'] = turn_rate
+                    if not basic_stats.get('turn_rate'):
+                        turn_rate = stat_elem.text.strip().split('\nTurn Rate')[0].strip()
+                        basic_stats['turn_rate'] = turn_rate
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Collision Size':
                     collision_size = stat_elem.text.strip().split('\nCollision Size')[0].strip()
                     basic_stats['collision_size'] = collision_size
@@ -345,6 +360,15 @@ class HeroScraper(BaseScraper):
             self.hero.lore_summary = hero_lore_summary
         return hero_title, hero_lore_summary
 
+    def process_hero_facet_elems(self) -> Dict:
+        facets = {}
+        for elem in self.hero_facet_elems:
+            facet_name = elem.find_element(By.CLASS_NAME, "facetLink").text.strip()
+            facet_desc = elem.find_element(By.CLASS_NAME, "facetCell").text.strip()
+            facets[facet_name] = {'description': facet_desc}
+
+        return facets
+
     def get_hero_lore_summary(self) -> None:
         """
         Auxiliary function for retrieving the hero lore summary element and processing the element
@@ -387,6 +411,42 @@ class HeroScraper(BaseScraper):
         summary_info = self.process_hero_summary_elem()
         self.hero.summary_info = summary_info
 
+    def get_hero_facets(self):
+        """
+
+        :return:
+        """
+        self.get_hero_facet_elems()
+        facets = self.process_hero_facet_elems()
+        self.hero.facets = facets
+
+    def get_hero_innate(self):
+        """
+
+        :return:
+        """
+        self.get_hero_innate_elem()
+        innate = self.process_hero_innate_elem()
+        self.hero.innate = innate
+
+    def get_main_elem_children(self):
+
+        # if the main_page_elem is None retrieve it first
+        if self.main_page_elem is None:
+            self.get_main_page_elem()
+
+        children = self.main_page_elem.find_elements(By.XPATH, './*')
+        children_useful_info = []
+        for child in children:
+            useful_info = {
+                'id': child.get_attribute('id'),
+                'class': child.get_attribute('class'),
+                'text': child.text,
+                'tag_name': child.tag_name,
+            }
+            children_useful_info.append(useful_info)
+        print()
+
     def scrape_hero_page(self, hero_name) -> Hero:
 
         # create a new Hero object
@@ -400,7 +460,11 @@ class HeroScraper(BaseScraper):
         # get the hero summary info
         self.get_hero_summary_info()
         # get the hero lore summary elem
-        self.get_hero_lore_summary()
+        # TODO: complete the lore summary
+        # self.get_hero_lore_summary()
+        # TODO: complete the get_hero_innate
+        # self.get_hero_innate()
+        self.get_main_elem_children()
 
         self.get_hero_ability_elems()
         return self.hero
@@ -410,6 +474,4 @@ class HeroScraper(BaseScraper):
 if __name__ == '__main__':
     hero_scraper = HeroScraper()
     hero_scraper.scrape_hero_page("axe")
-    # hero_scraper.get_hero_ability_elems()
     print()
-
