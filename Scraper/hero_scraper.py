@@ -28,7 +28,7 @@ class HeroScraper(BaseScraper):
         self.main_page_elem = None
         self.basic_stats_elem = None
         self.hero_summary_elems = None
-        self.lore_summary_elem = None
+        self.lore_summary_elems = None
         self.talent_tree_elem = None
         self.ability_elems = None
         self.main_elem_children = None
@@ -118,21 +118,25 @@ class HeroScraper(BaseScraper):
         self.hero_summary_elems = hero_summary_elems
         return hero_summary_elems
 
-    def get_hero_lore_summary_elem(self) -> WebElement:
+    def get_hero_lore_summary_elems(self) -> List[WebElement]:
         """
-        Retrieves the element that has the lore summary inside it
+        Retrieves the elements that has the lore summary inside it
         :return:
         """
 
-        # if the main_page_elem is None retrieve it first
-        if self.main_page_elem is None:
-            self.get_main_page_elem()
+        if self.main_elem_children is None:
+            self.get_main_elem_children()
 
-        lore_page_elem = WebDriverWait(self.main_page_elem, 10).until(
-            EC.presence_of_element_located((By.ID, 'heroBio'))
-        )
-        self.lore_summary_elem = lore_page_elem
-        return lore_page_elem
+        lore_summary_elems = []
+        lore_summary_elem_indices = []
+        for i, elem in enumerate(self.main_elem_children):
+            if elem.tag_name == 'h2' and elem.text.lower().startswith('bio'):
+                lore_summary_elem_indices.extend([i+1, i+2])
+            if lore_summary_elem_indices and i in lore_summary_elem_indices:
+                lore_summary_elems.append(elem)
+
+        self.lore_summary_elems = lore_summary_elems
+        return lore_summary_elems
 
     def get_hero_facet_elems(self) -> List[WebElement]:
         """
@@ -368,12 +372,14 @@ class HeroScraper(BaseScraper):
         """
         hero_title = ""
         hero_lore_summary = ""
-        hero_title = self.lore_summary_elem.find_element(By.XPATH, './/span').text
+        hero_title = self.lore_summary_elems[0].find_element(
+            By.CLASS_NAME, 'quote-source'
+        ).text.strip()
         if hero_title:
             self.hero.title = hero_title
-        lore_rows = self.lore_summary_elem.find_elements(
+        lore_rows = self.lore_summary_elems[1].find_elements(
             By.CSS_SELECTOR,
-            "div[style='display:table-row;']"
+            'div[style*="display:table-row"]'
         )
         hero_lore_summary = lore_rows[0].text.split('Lore: ')[1].strip()
         if hero_lore_summary:
@@ -424,7 +430,7 @@ class HeroScraper(BaseScraper):
         to retrieve the lore text and the title of the hero
         :return:
         """
-        self.get_hero_lore_summary_elem()
+        self.get_hero_lore_summary_elems()
         self.process_hero_lore_summary_elem()
 
     def get_hero_basic_stats(self):
@@ -516,9 +522,8 @@ class HeroScraper(BaseScraper):
         self.get_hero_basic_stats()
         # get the hero summary info
         self.get_hero_summary_info()
-        # get the hero lore summary elem
-        # TODO: complete the lore summary
-        # self.get_hero_lore_summary()
+        # get the hero lore summary
+        self.get_hero_lore_summary()
         # TODO: complete the get_hero_innate
         # self.get_hero_innate()
         self.get_main_elem_children()
@@ -531,4 +536,3 @@ class HeroScraper(BaseScraper):
 if __name__ == '__main__':
     hero_scraper = HeroScraper()
     hero_scraper.scrape_hero_page("axe")
-    print()
