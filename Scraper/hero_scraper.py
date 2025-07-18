@@ -29,7 +29,11 @@ class HeroScraper(BaseScraper):
         self.basic_stats_elem = None
         self.hero_summary_elems = None
         self.lore_summary_elem = None
+        self.talent_tree_elem = None
         self.ability_elems = None
+        self.main_elem_children = None
+        # TODO: main_elem_children_processed to be removed
+        self.main_elem_children_processed = None
         self.hero = None
 
     def accept_cookies(self) -> None:
@@ -176,6 +180,22 @@ class HeroScraper(BaseScraper):
                 ability_elems.remove(elem)
 
         return ability_elems, additional_elems
+
+    def get_hero_talent_tree_elem(self) -> WebElement:
+
+        if self.main_elem_children is None:
+            self.get_main_elem_children()
+
+        talent_tree_elem = None
+        talent_tree_elem_idx = None
+        for i, elem in enumerate(self.main_elem_children):
+            if elem.tag_name == 'h3' and elem.text.lower().startswith('talents'):
+                talent_tree_elem_idx = i + 1
+            if talent_tree_elem_idx is not None and i == talent_tree_elem_idx:
+                talent_tree_elem = elem
+
+        self.talent_tree_elem = talent_tree_elem
+        return talent_tree_elem
 
     def extract_attributes_from_basic_stats(self) -> Dict:
         """
@@ -369,6 +389,35 @@ class HeroScraper(BaseScraper):
 
         return facets
 
+    def process_hero_talent_tree_elem(self):
+
+        table = self.talent_tree_elem.find_element(By.CSS_SELECTOR, "div > table.wikitable")
+
+        talent_tree = {}
+
+        # iterate over each row
+        for row in table.find_elements(By.TAG_NAME, "tr"):
+            # skip header/footer rows that use colspan
+            if row.find_elements(By.XPATH, "./th[@colspan]"):
+                continue
+
+            # find the three cells: left <td>, middle <th>, right <td>
+            tds = row.find_elements(By.TAG_NAME, "td")
+            ths = row.find_elements(By.XPATH, "./th[not(@colspan)]")
+            if len(tds) == 2 and len(ths) == 1:
+                # parse the talent value
+                key = int(ths[0].text.strip())
+
+                # extract and clean the descriptions
+                left_desc = tds[0].text.strip()
+                right_desc = tds[1].text.strip()
+
+                talent_tree[key] = {
+                    "left": left_desc,
+                    "right": right_desc
+                }
+        return talent_tree
+
     def get_hero_lore_summary(self) -> None:
         """
         Auxiliary function for retrieving the hero lore summary element and processing the element
@@ -445,7 +494,15 @@ class HeroScraper(BaseScraper):
                 'tag_name': child.tag_name,
             }
             children_useful_info.append(useful_info)
-        print()
+        # TODO: main_elem_children_processed to be removed
+        self.main_elem_children_processed = children_useful_info
+        self.main_elem_children = children
+
+    def get_hero_talent_tree(self):
+
+        self.get_hero_talent_tree_elem()
+        talent_tree = self.process_hero_talent_tree_elem()
+        self.hero.talent_tree = talent_tree
 
     def scrape_hero_page(self, hero_name) -> Hero:
 
@@ -465,8 +522,8 @@ class HeroScraper(BaseScraper):
         # TODO: complete the get_hero_innate
         # self.get_hero_innate()
         self.get_main_elem_children()
+        self.get_hero_talent_tree()
 
-        self.get_hero_ability_elems()
         return self.hero
 
 
