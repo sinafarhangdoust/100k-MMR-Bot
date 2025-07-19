@@ -30,6 +30,7 @@ class HeroScraper(BaseScraper):
         self.hero_summary_elems = None
         self.lore_summary_elems = None
         self.talent_tree_elem = None
+        self.innate_elem = None
         self.ability_elems = None
         self.main_elem_children = None
         # TODO: main_elem_children_processed to be removed
@@ -201,6 +202,22 @@ class HeroScraper(BaseScraper):
         self.talent_tree_elem = talent_tree_elem
         return talent_tree_elem
 
+    def get_hero_innate_elem(self) -> WebElement:
+
+        if self.main_elem_children is None:
+            self.get_main_elem_children()
+
+        innate_elem = None
+        innate_elem_idx = None
+        for i, elem in enumerate(self.main_elem_children):
+            if elem.tag_name == 'h2' and elem.text.lower().startswith('innate'):
+                innate_elem_idx = i + 2
+            if innate_elem_idx is not None and i == innate_elem_idx:
+                innate_elem = elem
+
+        self.innate_elem = innate_elem
+        return innate_elem
+
     def extract_attributes_from_basic_stats(self) -> Dict:
         """
         Primary and secondary attributes, the values of those attributes and the attribute gain
@@ -237,6 +254,124 @@ class HeroScraper(BaseScraper):
                 }
             )
         return attributes
+
+    def process_spellcard_wrapper(self, spellcard_wrapper: WebElement):
+        """
+        Given a Selenium WebElement for <div class="spellcard-wrapper">,
+        extract all relevant fields into a dict.
+        """
+        spellcard = spellcard_wrapper.find_element(By.CSS_SELECTOR, ".spellcard")
+
+        data = {}
+
+        # — Name & Hotkeys —
+        # find the header row that has the bold span (ability/facet name)
+        header_span = spellcard.find_element(
+            By.XPATH,
+            ".//div[contains(@style,'border-bottom')]/span[contains(@style,'font-weight:bold')]"
+        )
+        data["name"] = header_span.text.strip()
+
+        # any hotkey badges (Default Hotkey, Legacy Keys, etc.)
+        hotkeys = []
+        for hk in spellcard.find_elements(
+                By.XPATH,
+                ".//div[@title='Default Hotkey' or @title='Legacy Keys']"
+        ):
+            key = hk.find_element(By.TAG_NAME, "span").text.strip()
+            hotkeys.append({
+                "type": hk.get_attribute("title"),
+                "key": key
+            })
+        if hotkeys:
+            data["hotkeys"] = hotkeys
+
+        # — Icon —
+        # pick the first image in a div whose class starts with "target_"
+        # icon_img = spellcard.find_element(
+        #     By.CSS_SELECTOR,
+        #     "div[class^='target_'] img"
+        # )
+        # data["icon"] = icon_img.get_attribute("src")
+
+        # — Ability metadata (Ability / Affects) —
+        meta = {}
+        for label in spellcard.find_elements(By.CSS_SELECTOR, ".spelltad"):
+            value = label.find_element(
+                By.XPATH,
+                "following-sibling::*[@class='spelltad_value']"
+            ).text.strip()
+            meta[label.text.strip()] = value
+        if meta:
+            data["metadata"] = meta
+
+        # — Main description —
+        # look for the flex-box right after metadata that holds the text
+        try:
+            desc = spellcard.find_element(
+                By.XPATH,
+                ".//div[contains(@style,'display:flex')][.//img]/div[last()]"
+            ).text.strip()
+            data["description"] = desc
+        except:
+            pass
+
+        # — Numeric traits (e.g. Radius, Armor Bonus per Kill…) —
+        traits = {}
+        for t in spellcard.find_elements(By.CLASS_NAME, "spelltrait_value"):
+            parts = t.text.split(":", 1)
+            name = parts[0].strip()
+            val = parts[1].strip() if len(parts) > 1 else ""
+            traits[name] = val
+        if traits:
+            data["traits"] = traits
+
+        # — Extra/descriptive blocks (spelldesc) —
+        extras = []
+        for blk in spellcard.find_elements(By.CSS_SELECTOR, ".spelldesc"):
+            # usually the second inner <div> holds the text
+            divs = blk.find_elements(By.TAG_NAME, "div")
+            if len(divs) >= 2:
+                extras.extend([div.text.strip() for div in divs if div.text.strip()])
+        if extras:
+            data["extra_descriptions"] = extras
+
+        # — Cooldown / Mana Cost table —
+        costs = {}
+        icons = spellcard.find_elements(By.CLASS_NAME, "spellcost_icon")
+        vals = spellcard.find_elements(By.CLASS_NAME, "spellcost_value")
+        for ico, val in zip(icons, vals):
+            # the <a title="Cooldown"> or <a title="Mana Cost">
+            lbl = ico.find_element(By.TAG_NAME, "a").get_attribute("title")
+            costs[lbl] = val.text.strip()
+        if costs:
+            data["costs"] = costs
+
+        # — Lore (if present) —
+        try:
+            lore = spellcard.find_element(By.CLASS_NAME, "spelllore").text.strip()
+            data["lore"] = lore
+        except:
+            pass
+
+        # — Tabs: Details / Interactions / Status Effects / Misc. —
+        tabs = {}
+        for tab_li in spellcard_wrapper.find_elements(By.CSS_SELECTOR, ".tabs-dynamic .nav-tabs li"):
+            count = tab_li.get_attribute("data-count")
+            title = tab_li.text.strip()
+            # don't need to process show all
+            if title.lower() == 'show all':
+                break
+            # find the matching content panel
+            panel = spellcard_wrapper.find_element(
+                By.CSS_SELECTOR,
+                f".tabs-content .content{count}"
+            )
+            tabs[title] = panel.text.strip()
+        if tabs:
+            data["tabs"] = tabs
+
+        return data
 
     def process_hero_basic_stats_elem(self) -> Dict:
         """
@@ -424,6 +559,11 @@ class HeroScraper(BaseScraper):
                 }
         return talent_tree
 
+    def process_hero_innate_elem(self):
+        innate_info = self.process_spellcard_wrapper(self.innate_elem)
+        self.hero.innate = innate_info
+        return innate_info
+
     def get_hero_lore_summary(self) -> None:
         """
         Auxiliary function for retrieving the hero lore summary element and processing the element
@@ -481,8 +621,7 @@ class HeroScraper(BaseScraper):
         :return:
         """
         self.get_hero_innate_elem()
-        innate = self.process_hero_innate_elem()
-        self.hero.innate = innate
+        self.process_hero_innate_elem()
 
     def get_main_elem_children(self):
 
@@ -518,19 +657,25 @@ class HeroScraper(BaseScraper):
         self.browse_hero_page(hero_name)
         # get the main page elem
         self.get_main_page_elem()
+        # get the main element children
+        self.get_main_elem_children()
         # get the hero basic stats elem
         self.get_hero_basic_stats()
         # get the hero summary info
         self.get_hero_summary_info()
         # get the hero lore summary
         self.get_hero_lore_summary()
-        # TODO: complete the get_hero_innate
-        # self.get_hero_innate()
-        self.get_main_elem_children()
+        # get the hero facets
+        self.get_hero_facets()
+        # get hero talent tree
         self.get_hero_talent_tree()
+        # get the hero innate
+        # TODO: some heroes have facet descriptions after innate description as well
+        self.get_hero_innate()
+        # TODO: get the hero model
+        # TODO: get the hero abilities
 
         return self.hero
-
 
 
 if __name__ == '__main__':
