@@ -1,5 +1,6 @@
 from abc import ABC
 
+
 class Ability:
     def __init__(self):
         self.name = None
@@ -19,4 +20,5 @@ class Hero:
         self.shard_upgrade_info = None
         self.talent_tree = None
         self.main_attribute = ''
+        self.abilities = []
 

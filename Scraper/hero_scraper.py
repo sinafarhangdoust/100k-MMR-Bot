@@ -27,7 +27,7 @@ class HeroScraper(BaseScraper):
 
         self.main_page_elem = None
         self.basic_stats_elem = None
-        self.hero_summary_elems = None
+        self.hero_summary_elem = None
         self.lore_summary_elems = None
         self.talent_tree_elem = None
         self.innate_elem = None
@@ -110,14 +110,14 @@ class HeroScraper(BaseScraper):
         if self.main_page_elem is None:
             self.get_main_page_elem()
 
-        hero_summary_elems = WebDriverWait(self.main_page_elem, 10).until(
+        hero_summary_elem = WebDriverWait(self.main_page_elem, 10).until(
             EC.presence_of_element_located(
                 (By.CLASS_NAME,
                  "table-responsive")
             )
         )
-        self.hero_summary_elems = hero_summary_elems
-        return hero_summary_elems
+        self.hero_summary_elem = hero_summary_elem
+        return hero_summary_elem
 
     def get_hero_lore_summary_elems(self) -> List[WebElement]:
         """
@@ -154,37 +154,34 @@ class HeroScraper(BaseScraper):
         self.hero_facet_elems = hero_facet_elems
         return hero_facet_elems
 
-    def get_hero_ability_elems(self) -> Tuple[List[WebElement], List[WebElement]]:
+    def get_hero_ability_elems(self) -> List[WebElement]:
         """
-        Retrieves the elements that has the ability of the hero information inside it, if there are
-         any additional elements at the end of the page it will also retrieve those
+        Retrieves the elements that has the ability of the hero information inside it
         :return:
         """
 
-        # if the main_page_elem is None retrieve it first
-        if self.main_page_elem is None:
-            self.get_main_page_elem()
+        def check_elem_ability(elem: WebElement):
+            found = False
+            for ability_name in self.hero.summary_info['abilities']:
+                if elem.text.lower().startswith(ability_name.lower()):
+                    found = True
+            return found and elem.tag_name == 'h3'
 
-        ability_elems = WebDriverWait(self.browser, 10).until(
-            EC.presence_of_all_elements_located((
-                By.CSS_SELECTOR,
-                'div[style*="display:flex; flex-wrap:wrap; align-items:flex-start;"]'))
-        )
-        self.ability_elems = []
-        # TODO: better analyze the additional elems to capture all the possible cases
-        additional_elems = []
-        # filter only the actual ability elements, since they are other elements with te same
-        # CSS_SELECTOR
-        for elem in ability_elems:
-            try:
-                flag_element = elem.find_element(By.CLASS_NAME, 'ability-background')
-                self.ability_elems.append(elem)
-            except NoSuchElementException:
-                # in case it's not the ability element remove it from the list of ability_elems
-                additional_elems.append(elem)
-                ability_elems.remove(elem)
+        if self.main_elem_children is None:
+            self.get_main_elem_children()
 
-        return ability_elems, additional_elems
+        starting_idx = 0
+        ability_elems = []
+        for i, elem in enumerate(self.main_elem_children):
+            if elem.tag_name == 'h2' and elem.text.lower().startswith('abilities'):
+                starting_idx = i + 1
+
+        for i, elem in enumerate(self.main_elem_children[starting_idx:]):
+            if check_elem_ability(elem):
+                ability_elems.append(self.main_elem_children[starting_idx + i + 1])
+
+        self.ability_elems = ability_elems
+        return ability_elems
 
     def get_hero_talent_tree_elem(self) -> WebElement:
 
@@ -342,8 +339,11 @@ class HeroScraper(BaseScraper):
         vals = spellcard.find_elements(By.CLASS_NAME, "spellcost_value")
         for ico, val in zip(icons, vals):
             # the <a title="Cooldown"> or <a title="Mana Cost">
-            lbl = ico.find_element(By.TAG_NAME, "a").get_attribute("title")
-            costs[lbl] = val.text.strip()
+            try:
+                lbl = ico.find_element(By.TAG_NAME, "a").get_attribute("title")
+                costs[lbl] = val.text.strip()
+            except:
+                pass
         if costs:
             data["costs"] = costs
 
@@ -477,7 +477,7 @@ class HeroScraper(BaseScraper):
         """
         summary_info = {}
         summary = ''
-        for i, elem in enumerate(self.hero_summary_elems.find_elements(By.CSS_SELECTOR, 'tr')):
+        for i, elem in enumerate(self.hero_summary_elem.find_elements(By.CSS_SELECTOR, 'tr')):
             if elem.text:
                 if 'Roles' in elem.text:
                     roles = []
@@ -495,6 +495,14 @@ class HeroScraper(BaseScraper):
                     summary_info['num_legs'] = num_legs
                 else:
                     summary += elem.text + '\n'
+            else:
+                # extract ability names from the icon row
+                abilities = []
+                for link in elem.find_elements(By.XPATH, ".//a[starts-with(@href, '#') and @title]"):
+                    name = link.get_attribute("title").strip()
+                    if name and name not in abilities:
+                        abilities.append(name)
+                summary_info['abilities'] = abilities
 
         summary_info['summary'] = summary
         return summary_info
@@ -529,6 +537,16 @@ class HeroScraper(BaseScraper):
             facets[facet_name] = {'description': facet_desc}
 
         return facets
+
+    def process_hero_ability_elems(self) -> List:
+        abilities = []
+        for elem in self.ability_elems:
+            ability = self.process_spellcard_wrapper(elem)
+            abilities.append(ability)
+
+        self.hero.abilities = abilities
+        return abilities
+
 
     def process_hero_talent_tree_elem(self):
 
@@ -649,6 +667,10 @@ class HeroScraper(BaseScraper):
         talent_tree = self.process_hero_talent_tree_elem()
         self.hero.talent_tree = talent_tree
 
+    def get_hero_abilities(self):
+        self.get_hero_ability_elems()
+        self.process_hero_ability_elems()
+
     def scrape_hero_page(self, hero_name) -> Hero:
 
         # create a new Hero object
@@ -673,7 +695,8 @@ class HeroScraper(BaseScraper):
         # TODO: some heroes have facet descriptions after innate description as well
         self.get_hero_innate()
         # TODO: get the hero model
-        # TODO: get the hero abilities
+        # get hero abilities
+        self.get_hero_abilities()
 
         return self.hero
 
