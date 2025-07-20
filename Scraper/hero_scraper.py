@@ -31,6 +31,7 @@ class HeroScraper(BaseScraper):
         self.lore_summary_elems = None
         self.talent_tree_elem = None
         self.innate_elem = None
+        self.upgrades_elem = None
         self.ability_elems = None
         self.main_elem_children = None
         # TODO: main_elem_children_processed to be removed
@@ -83,6 +84,26 @@ class HeroScraper(BaseScraper):
 
         self.main_page_elem = main_page_elem
         return main_page_elem
+
+    def get_main_elem_children(self):
+
+        # if the main_page_elem is None retrieve it first
+        if self.main_page_elem is None:
+            self.get_main_page_elem()
+
+        children = self.main_page_elem.find_elements(By.XPATH, './*')
+        children_useful_info = []
+        for child in children:
+            useful_info = {
+                'id': child.get_attribute('id'),
+                'class': child.get_attribute('class'),
+                'text': child.text,
+                'tag_name': child.tag_name,
+            }
+            children_useful_info.append(useful_info)
+        # TODO: main_elem_children_processed to be removed
+        self.main_elem_children_processed = children_useful_info
+        self.main_elem_children = children
 
     def get_hero_basic_stats_elem(self) -> WebElement:
         """
@@ -153,6 +174,24 @@ class HeroScraper(BaseScraper):
         )
         self.hero_facet_elems = hero_facet_elems
         return hero_facet_elems
+
+    def get_hero_upgrades_elem(self) -> List[WebElement]:
+        """
+        Retrieves the element that has the upgrades info inside it
+        :return:
+        """
+
+        if self.main_elem_children is None:
+            self.get_main_elem_children()
+
+        upgrades_elem = None
+
+        for i, elem in enumerate(self.main_elem_children):
+            if elem.tag_name == 'h3' and elem.text.lower().startswith("aghanim's"):
+                upgrades_elem = self.main_elem_children[i+1]
+
+        self.upgrades_elem = upgrades_elem
+        return upgrades_elem
 
     def get_hero_ability_elems(self) -> List[WebElement]:
         """
@@ -524,7 +563,8 @@ class HeroScraper(BaseScraper):
             By.CSS_SELECTOR,
             'div[style*="display:table-row"]'
         )
-        hero_lore_summary = lore_rows[0].text.split('Lore: ')[1].strip()
+        [row for row in lore_rows if 'Lore: ' in row.text]
+        hero_lore_summary = [row for row in lore_rows if 'Lore: ' in row.text][0].text.split('Lore: ')[1].strip()
         if hero_lore_summary:
             self.hero.lore_summary = hero_lore_summary
         return hero_title, hero_lore_summary
@@ -538,6 +578,30 @@ class HeroScraper(BaseScraper):
 
         return facets
 
+    def process_hero_upgrades_elem(self) -> Dict:
+        """
+
+        :return:
+        """
+        # Grab all the upgrade titles in order (first Scepter, then Shard)
+        titles = self.upgrades_elem.find_elements(By.CSS_SELECTOR, ".aghupgTitle")
+        # Grab all the description elements under any .aghupgShadow
+        descs = self.upgrades_elem.find_elements(By.CSS_SELECTOR, ".aghupgShadow .aghupgDesc")
+
+        upgrades = {}
+        # First title + first desc → Scepter
+        if len(titles) >= 1 and len(descs) >= 1:
+            upgrades[titles[0].text.strip()] = descs[0].text.strip()
+            self.hero.scepter_upgrade_info = descs[0].text.strip()
+        # The remaining descs all belong to the Shard section
+        if len(titles) >= 2 and len(descs) > 1:
+            shard_texts = [d.text.strip() for d in descs[1:]]
+            # join multiple entries with a blank line
+            upgrades[titles[1].text.strip()] = "\n\n".join(shard_texts)
+            self.hero.shard_upgrade_info = "\n\n".join(shard_texts)
+
+        return upgrades
+
     def process_hero_ability_elems(self) -> List:
         abilities = []
         for elem in self.ability_elems:
@@ -546,7 +610,6 @@ class HeroScraper(BaseScraper):
 
         self.hero.abilities = abilities
         return abilities
-
 
     def process_hero_talent_tree_elem(self):
 
@@ -581,15 +644,6 @@ class HeroScraper(BaseScraper):
         innate_info = self.process_spellcard_wrapper(self.innate_elem)
         self.hero.innate = innate_info
         return innate_info
-
-    def get_hero_lore_summary(self) -> None:
-        """
-        Auxiliary function for retrieving the hero lore summary element and processing the element
-        to retrieve the lore text and the title of the hero
-        :return:
-        """
-        self.get_hero_lore_summary_elems()
-        self.process_hero_lore_summary_elem()
 
     def get_hero_basic_stats(self):
         """
@@ -633,6 +687,25 @@ class HeroScraper(BaseScraper):
         facets = self.process_hero_facet_elems()
         self.hero.facets = facets
 
+    def get_hero_upgrades(self):
+        self.get_hero_upgrades_elem()
+        self.process_hero_upgrades_elem()
+
+    def get_hero_talent_tree(self):
+
+        self.get_hero_talent_tree_elem()
+        talent_tree = self.process_hero_talent_tree_elem()
+        self.hero.talent_tree = talent_tree
+
+    def get_hero_lore_summary(self) -> None:
+        """
+        Auxiliary function for retrieving the hero lore summary element and processing the element
+        to retrieve the lore text and the title of the hero
+        :return:
+        """
+        self.get_hero_lore_summary_elems()
+        self.process_hero_lore_summary_elem()
+
     def get_hero_innate(self):
         """
 
@@ -640,32 +713,6 @@ class HeroScraper(BaseScraper):
         """
         self.get_hero_innate_elem()
         self.process_hero_innate_elem()
-
-    def get_main_elem_children(self):
-
-        # if the main_page_elem is None retrieve it first
-        if self.main_page_elem is None:
-            self.get_main_page_elem()
-
-        children = self.main_page_elem.find_elements(By.XPATH, './*')
-        children_useful_info = []
-        for child in children:
-            useful_info = {
-                'id': child.get_attribute('id'),
-                'class': child.get_attribute('class'),
-                'text': child.text,
-                'tag_name': child.tag_name,
-            }
-            children_useful_info.append(useful_info)
-        # TODO: main_elem_children_processed to be removed
-        self.main_elem_children_processed = children_useful_info
-        self.main_elem_children = children
-
-    def get_hero_talent_tree(self):
-
-        self.get_hero_talent_tree_elem()
-        talent_tree = self.process_hero_talent_tree_elem()
-        self.hero.talent_tree = talent_tree
 
     def get_hero_abilities(self):
         self.get_hero_ability_elems()
@@ -685,12 +732,14 @@ class HeroScraper(BaseScraper):
         self.get_hero_basic_stats()
         # get the hero summary info
         self.get_hero_summary_info()
-        # get the hero lore summary
-        self.get_hero_lore_summary()
         # get the hero facets
         self.get_hero_facets()
+        # get hero upgrades
+        self.get_hero_upgrades()
         # get hero talent tree
         self.get_hero_talent_tree()
+        # get the hero lore summary
+        self.get_hero_lore_summary()
         # get the hero innate
         # TODO: some heroes have facet descriptions after innate description as well
         self.get_hero_innate()
