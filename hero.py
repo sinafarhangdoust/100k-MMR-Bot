@@ -22,3 +22,21 @@ class Hero:
         self.main_attribute = ''
         self.abilities = []
 
+    def __str__(self):
+        return self.name
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'title': self.title,
+            'quote': self.quote,
+            'lore_summary': self.lore_summary,
+            'basic_stats': self.basic_stats,
+            'facets': self.facets,
+            'innate': self.innate,
+            'scepter_upgrade_info': self.scepter_upgrade_info,
+            'shard_upgrade_info': self.shard_upgrade_info,
+            'talent_tree': self.talent_tree,
+            'main_attribute': self.main_attribute,
+            'abilities': self.abilities
+        }

@@ -1,3 +1,5 @@
+import json
+import os
 import time
 from urllib.parse import urljoin
 from typing import Tuple, List, Dict
@@ -37,6 +39,7 @@ class HeroScraper(BaseScraper):
         # TODO: main_elem_children_processed to be removed
         self.main_elem_children_processed = None
         self.hero = None
+        self.heroes = None
 
     def accept_cookies(self) -> None:
         """
@@ -72,6 +75,20 @@ class HeroScraper(BaseScraper):
         # TODO: change it to dynamic wait
         time.sleep(1)
         self.accept_cookies()
+
+    def browse_heroes_page(self):
+        heroes_url = urljoin(self.dota_wiki_base_url, 'heroes')
+        self.browse(heroes_url)
+        # TODO: change it to dynamic wait
+        time.sleep(1)
+        self.accept_cookies()
+
+    def get_all_hero_names(self) -> List[str]:
+        self.browse_heroes_page()
+        self.get_main_page_elem()
+        hero_elements = self.main_page_elem.find_elements(By.CSS_SELECTOR, ".heroes-panel__hero-card__title a")
+        hero_names = [el.text for el in hero_elements]
+        return hero_names
 
     def get_main_page_elem(self) -> WebElement:
         """
@@ -204,6 +221,7 @@ class HeroScraper(BaseScraper):
             for ability_name in self.hero.summary_info['abilities']:
                 if elem.text.lower().startswith(ability_name.lower()):
                     found = True
+                    break
             return found and elem.tag_name == 'h3'
 
         if self.main_elem_children is None:
@@ -230,7 +248,8 @@ class HeroScraper(BaseScraper):
         talent_tree_elem = None
         talent_tree_elem_idx = None
         for i, elem in enumerate(self.main_elem_children):
-            if elem.tag_name == 'h3' and elem.text.lower().startswith('talents'):
+            if ((elem.tag_name == 'h3' or elem.tag_name == 'h2') and
+                    elem.text.lower().startswith('talents')):
                 talent_tree_elem_idx = i + 1
             if talent_tree_elem_idx is not None and i == talent_tree_elem_idx:
                 talent_tree_elem = elem
@@ -447,9 +466,10 @@ class HeroScraper(BaseScraper):
                     basic_stats['base_health_regeneration'] = base_health_regen
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Mana':
                     base_mana = stat_elem.text.split('+')[0].strip()
-                    base_mana_regen = stat_elem.text.split('+')[1].strip()
+                    if base_mana != 'n/a':
+                        base_mana_regen = stat_elem.text.split('+')[1].strip()
+                        basic_stats['base_mana_regeneration'] = base_mana_regen
                     basic_stats['base_mana'] = base_mana
-                    basic_stats['base_mana_regeneration'] = base_mana_regen
                 elif stat_elem.find_element(By.TAG_NAME, 'a').get_attribute("title") == 'Armor':
                     # TODO: if needed can extract the base effective hp from armor
                     base_armor = stat_elem.text.split('\nArmor\n')[0].strip()
@@ -605,8 +625,9 @@ class HeroScraper(BaseScraper):
     def process_hero_ability_elems(self) -> List:
         abilities = []
         for elem in self.ability_elems:
-            ability = self.process_spellcard_wrapper(elem)
-            abilities.append(ability)
+            if elem.text:
+                ability = self.process_spellcard_wrapper(elem)
+                abilities.append(ability)
 
         self.hero.abilities = abilities
         return abilities
@@ -749,7 +770,37 @@ class HeroScraper(BaseScraper):
 
         return self.hero
 
+    def scrape_all_heroes(self, path: str):
+        self.heroes = []
+        if not os.path.exists(path):
+            os.makedirs(path)
+        hero_names = self.get_all_hero_names()
+        for hero_name in hero_names:
+            try:
+                logger.info(f"Starting to scrape {hero_name}")
+                # check if the hero is already scraped, if so skip it
+                if os.path.exists(os.path.join(path, hero_name + '.json')):
+                    logger.info("%s hero data already exists" % hero_name)
+                    continue
+                self.scrape_hero_page('_'.join(hero_name.lower().split(' ')))
+                # save the hero on filesystem
+                with open(os.path.join(path, f"{hero_name}.json"), 'w') as hero_file:
+                    json.dump(
+                        self.hero.to_dict(),
+                        hero_file,
+                        indent=4,
+                        ensure_ascii=False,
+                    )
+                self.heroes.append(self.hero)
+                logger.info(f"Successfully finished scraping {hero_name}")
+            except Exception as err:
+                logger.error(f"failed to scrape hero: %s", hero_name)
+                logger.error("The following error occurred: %s", err)
+        return self.heroes
+
+
 
 if __name__ == '__main__':
     hero_scraper = HeroScraper()
-    hero_scraper.scrape_hero_page("axe")
+    hero_scraper.scrape_hero_page("sven")
+    # hero_scraper.scrape_all_heroes("/Users/sinafarhangdoust/personal_projects/ChatDota2/hero_data")
