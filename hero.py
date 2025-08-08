@@ -13,6 +13,7 @@ class Hero:
         self.title = None
         self.quote = None
         self.lore_summary = None
+        self.summary_info = None
         self.basic_stats = None
         self.facets = None
         self.innate = None
@@ -31,6 +32,7 @@ class Hero:
             'title': self.title,
             'quote': self.quote,
             'lore_summary': self.lore_summary,
+            'summary_info': self.summary_info,
             'basic_stats': self.basic_stats,
             'facets': self.facets,
             'innate': self.innate,

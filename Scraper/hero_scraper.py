@@ -548,8 +548,8 @@ class HeroScraper(BaseScraper):
                     complexity = str(len([cplx_elem for cplx_elem in elem.find_elements(By.CSS_SELECTOR, 'td')])) + '/3'
                     summary_info['complexity'] = complexity
                 elif 'Adjectives' in elem.text:
-                    adjectives = elem.find_element(By.CSS_SELECTOR, 'td').text.split('\nLegs ')[0].split(',')
-                    num_legs = elem.find_element(By.CSS_SELECTOR, 'td').text.split('\nLegs ')[1]
+                    adjectives = [adj.strip() for adj in elem.find_element(By.CSS_SELECTOR, 'td').text.split('Legs ')[0].split(',')]
+                    num_legs = elem.find_element(By.CSS_SELECTOR, 'td').text.split('Legs')[-1].strip()
                     summary_info['adjectives'] = adjectives
                     summary_info['num_legs'] = num_legs
                 else:
@@ -802,5 +802,6 @@ class HeroScraper(BaseScraper):
 
 if __name__ == '__main__':
     hero_scraper = HeroScraper()
-    hero_scraper.scrape_hero_page("sven")
-    # hero_scraper.scrape_all_heroes("/Users/sinafarhangdoust/personal_projects/ChatDota2/hero_data")
+    hero_scraper.scrape_hero_page("tiny")
+    print()
+    #hero_scraper.scrape_all_heroes("/home/cna/projects/ChatDota2/hero_data")
