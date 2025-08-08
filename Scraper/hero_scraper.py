@@ -801,7 +801,8 @@ class HeroScraper(BaseScraper):
 
 
 if __name__ == '__main__':
+    # TODO: heroes to be fixed:
+    # TODO: Kez, Lone Druid, Slark, Troll Warlord, Weaver, Chen, Silencer, Winter Wyvern, Nyx Assassin, Sand King
     hero_scraper = HeroScraper()
     hero_scraper.scrape_hero_page("tiny")
-    print()
     #hero_scraper.scrape_all_heroes("/home/cna/projects/ChatDota2/hero_data")
