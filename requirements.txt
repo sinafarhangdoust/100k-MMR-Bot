@@ -3,3 +3,4 @@ webdriver-manager==4.0.2
 streamlit
 langchain==0.3.27
 langchain-openai==0.3.29
+chainlit==2.6.8
