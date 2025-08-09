@@ -94,6 +94,18 @@ html:not(.dark) [data-step-type="assistant_message"] .message-content {
   color: #fff !important;
 }
 
+/* Send + Stop buttons */
+#message-composer #chat-submit,
+#stop-button {
+  background-color: #a42722 !important;
+  color: #fff !important;
+}
+
+#message-composer #chat-submit:hover,
+#stop-button:hover {
+  background-color: #8f201d !important;
+}
+
 
 /* Make miscellaneous containers transparent so the veil shows through */
 .step, [data-panel-group], [data-panel] {
