@@ -9,7 +9,7 @@ def get_llm_agent(model, temperature):
     prompt_template = ChatPromptTemplate.from_messages(
         [
             ("system",
-             "You are a DOTA 2 expert. You must answer to the user's questions using the available tool `get_hero` to retrieve the information regarding the hero. Always generate the hero names in lower case"),
+             "You are a DOTA 2 expert. You must answer to the user's questions using the available tool `get_hero` to retrieve the information regarding the hero. The order of `abilities` are important in the response of the tool because they are often referred to first, second, third or ultimate(last ability) "),
             ("human", "User message: {user_message} \n\n Chat History: {chat_history}")
 
         ]
