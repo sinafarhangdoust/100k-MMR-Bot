@@ -50,7 +50,6 @@ class MechanicsScraper(BaseScraper):
         except NoSuchElementException:
             logger.info("Accept button not found!")
 
-
     def browse_mechanics_page(self) -> None:
         """
         Browses the mechanics main page
@@ -105,6 +104,7 @@ class MechanicsScraper(BaseScraper):
             self.get_main_elem_children()
 
         main_categories = {}
+        logger.info("Starting to scrape all mechanics titles")
         for elem in self.main_elem_children:
             if elem.tag_name.startswith('h'):
                 main_category = (elem.text.replace('[edit]', '').strip())
@@ -127,15 +127,51 @@ class MechanicsScraper(BaseScraper):
 
             mechanic_titles.append({category: category_mechanics})
 
+        logger.info(f"Found {len(mechanic_titles)} mechanics titles")
+        logger.info("Finished scraping mechanics titles")
+
         self.mechanic_titles = mechanic_titles
         return mechanic_titles
 
-    def scrape_mechanics(self):
+    def scrape_mechanic_text(self, mechanic_title) -> str | None:
+        try:
+            logger.info(f"Starting to scrape {mechanic_title}")
+            self.browse(urljoin(self.dota_wiki_base_url, mechanic_title))
+            text = self.get_main_page_elem().text
+            logger.info(f"Finished scraping {mechanic_title}")
+            return text
+        except Exception as err:
+            logger.error(f"failed to scrape mechanic: {mechanic_title}")
+            logger.error(f"The following error occurred: {err}")
+
+    def scrape_mechanics(self, path: str) -> None:
         self.browse_mechanics_page()
         self.get_all_mechanics_titles()
+
+        mechanics_text = {}
+        for category_dict in self.mechanic_titles:
+            for category, mechanic_list in category_dict.items():
+                for mechanics_dict in mechanic_list:
+                    for main_mechanic_title, sub_mechanic_titles in mechanics_dict.items():
+                        # retrieve the main_mechanic_title details
+                        mechanics_text[main_mechanic_title] = self.scrape_mechanic_text(main_mechanic_title)
+                        # retrieve the sub_mechanic_title details if available any
+                        if sub_mechanic_titles:
+                            for sub_mechanic_title in sub_mechanic_titles:
+                                mechanics_text[sub_mechanic_title] = self.scrape_mechanic_text(sub_mechanic_title)
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+        for mechanic_title, mechanic_text in mechanics_text.items():
+            if mechanic_text:
+                with open(os.path.join(path, f"{mechanic_title}.txt"), 'w') as mechanic_file:
+                    mechanic_file.write(mechanic_text)
+
+
+
+
 
 
 if __name__ == '__main__':
     mechanics_scraper = MechanicsScraper()
-    mechanics_scraper.scrape_mechanics()
-    print()
+    mechanics_scraper.scrape_mechanics('mechanics')
