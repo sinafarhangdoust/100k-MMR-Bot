@@ -11,9 +11,6 @@ ADBLOCK_EXTENSION_URL = ('https://www.crx4chrome.com/go.php?p=31928&i=cfhdojbkjh
                          'ddb&s=O3CUdPpTCIbEs&l=https%3A%2F%2Ff6.crx4chrome.com%2Fcrx.php%3Fi%3Dcfh'
                          'dojbkjhnklbpkdaibdccddilifddb%26v%3D4.6')
 
-with open("Scraper/scraper_prompt.md") as f:
-    SCRAPER_SYSTEM_PROMPT = f.read()
-
 HEROES = Literal[
     # Strength
     "alchemist", "axe", "bristleback", "centaur_warrunner", "chaos_knight", "clockwerk", "dawnbreaker",
