@@ -1,11 +1,9 @@
-import json
 import os
 import time
 from urllib.parse import urljoin
-from typing import Tuple, List, Dict
+from typing import List, Dict
 
 from base_scraper import BaseScraper
-from hero import Hero
 
 from custom_logger.custom_logger import ChatDota2Logger
 
