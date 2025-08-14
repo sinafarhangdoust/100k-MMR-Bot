@@ -1,11 +1,9 @@
-import json
 import os
 import time
 from urllib.parse import urljoin
-from typing import Tuple, List, Dict
+from typing import List, Dict
 
 from base_scraper import BaseScraper
-from hero import Hero
 
 from custom_logger.custom_logger import ChatDota2Logger
 
@@ -74,7 +72,7 @@ class MechanicsScraper(BaseScraper):
         self.main_page_elem = main_page_elem
         return main_page_elem
 
-    def get_main_elem_children(self):
+    def get_main_elem_children(self) -> None:
 
         # if the main_page_elem is None retrieve it first
         if self.main_page_elem is None:
@@ -166,10 +164,6 @@ class MechanicsScraper(BaseScraper):
             if mechanic_text:
                 with open(os.path.join(path, f"{mechanic_title}.txt"), 'w') as mechanic_file:
                     mechanic_file.write(mechanic_text)
-
-
-
-
 
 
 if __name__ == '__main__':
