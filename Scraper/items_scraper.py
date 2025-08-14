@@ -1,7 +1,7 @@
 import os
 import time
 from urllib.parse import urljoin
-from typing import List, Dict
+from typing import List, Tuple
 import re
 
 from base_scraper import BaseScraper
@@ -82,7 +82,7 @@ class ItemsScraper(BaseScraper):
         self.main_page_elem = main_page_elem
         return main_page_elem
 
-    def get_main_elem_children(self):
+    def get_main_elem_children(self) -> None:
 
         # if the main_page_elem is None retrieve it first
         if self.main_page_elem is None:
@@ -103,12 +103,12 @@ class ItemsScraper(BaseScraper):
         self.main_elem_children = children
 
     @staticmethod
-    def get_shop_item_names_from_elem(elem: WebElement):
+    def get_shop_item_names_from_elem(elem: WebElement) -> List[str]:
         pattern = re.compile(r"^(.*?)\s*\(\d+\s*\)$")
         return [pattern.match(item).group(1) for item in elem.text.split('\n') if pattern.match(item)]
 
     @staticmethod
-    def get_neutral_item_names_from_elem(elem: WebElement):
+    def get_neutral_item_names_from_elem(elem: WebElement) -> List[str]:
         return [item.strip() for item in elem.text.split('\n')]
 
     def get_all_shop_item_names(self):
@@ -134,7 +134,7 @@ class ItemsScraper(BaseScraper):
         # lower, trim, and drop the “[edit]” clutter once
         return re.sub(r'\[edit\]', '', s or '', flags=re.IGNORECASE).strip().casefold()
 
-    def get_all_neutral_item_names(self):
+    def get_all_neutral_item_names(self) -> Tuple[List[str], List[str]]:
 
         self.get_main_page_elem()
         self.get_main_elem_children()
@@ -167,7 +167,7 @@ class ItemsScraper(BaseScraper):
 
         return sections["active artifacts"][1], sections["active enchantments"][1]
 
-    def scrape_item_text(self, item_title: str):
+    def scrape_item_text(self, item_title: str) -> str | None:
         try:
             logger.info(f"Starting to scrape {item_title}")
             self.browse(urljoin(self.dota_wiki_base_url, item_title))
@@ -209,7 +209,6 @@ class ItemsScraper(BaseScraper):
             for item_text in items_texts:
                 with open(os.path.join(category_path, item_text['name'] + '.txt'), 'w') as item_file:
                         item_file.write(item_text['text'])
-
 
 
 if __name__ == '__main__':
