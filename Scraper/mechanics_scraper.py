@@ -190,6 +190,61 @@ class MechanicsScraper(BaseScraper):
 
         return '\n\n' + df.to_markdown(index=False) + '\n\n'
 
+    @staticmethod
+    def convert_skilllist_to_md(block_html) -> str:
+        soup = BeautifulSoup(block_html, "lxml")
+        root = soup.select_one("div.skilllist") or soup
+        title_el = root.select_one(".skilllist-title")
+        title = title_el.get_text(" ", strip=True) if title_el else None
+
+        rows = []
+        # Handle both simple (lite) and rich variants
+        for li in root.select("li.skilllist-lite, li.skilllist-rich"):
+            classes = li.get("class", [])
+            if "skilllist-lite" in classes:
+                # Collect only anchors that have visible text (skip the icon link)
+                link_texts = []
+                for a in li.select("a"):
+                    t = a.get_text(" ", strip=True)
+                    if t:  # ignore the <a> with only <img>
+                        link_texts.append(t)
+
+                if len(link_texts) >= 2:
+                    source = link_texts[0]  # hero name
+                    ability = link_texts[-1]  # ability name (may include superscript number)
+                else:
+                    # Fallback: split by en dash if weird markup
+                    text = li.get_text(" ", strip=True)
+                    parts = [p.strip() for p in text.split("–", 1)]
+                    source = parts[0] if parts else ""
+                    ability = parts[1] if len(parts) > 1 else ""
+                details = ""
+            else:
+                # skilllist-rich
+                head = li.select_one(".skilllist-rich-head")
+                head_links = [a.get_text(" ", strip=True) for a in head.select("a")] if head else []
+                source = head_links[0] if head_links else ""
+                ability = head_links[-1] if len(head_links) >= 2 else ""
+                desc = li.select_one(".skilllist-rich-desc")
+                details = desc.get_text(" ", strip=True) if desc else ""
+
+            rows.append((source, ability, details))
+
+        # Build markdown
+        heading = f"\n\n#### {title}\n\n" if title else "\n\n"
+        df = pd.DataFrame(rows, columns=["Source", "Ability", "Details"]).astype("string").fillna("-")
+        df = df.loc[:, (df != "").any(axis=0)]
+
+        return heading + df.to_markdown(index=False) + "\n\n"
+
+    @staticmethod
+    def convert_heading_to_md(heading_el) -> str:
+        level = int(heading_el.tag_name[1])  # "h2" → 2
+        text = heading_el.get_attribute("textContent").strip()
+        # Clamp level to a reasonable range (e.g. h1–h6 → #–######)
+        level = min(max(level, 1), 6)
+        return "\n\n" + ("#" * level) + " " + text + "\n\n"
+
     def process_table(self, table_element):
         html_element = table_element.get_attribute('outerHTML')
         table_text = self.convert_table_to_md(html_element)
@@ -206,15 +261,57 @@ class MechanicsScraper(BaseScraper):
                             return pre;
                         """, table_element, table_text)
 
-    def remove_excess_elems(self):
+    def process_skilllist(self, block_element):
+        html = block_element.get_attribute("outerHTML")
+        md = self.convert_skilllist_to_md(html)
+        # Return the <pre> so we never touch the stale block handle again
+        return self.browser.execute_script("""
+            const el  = arguments[0];
+            const md  = arguments[1];
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.margin = '0';
+            pre.setAttribute('data-replaced-skilllist', '1');
+            pre.textContent = md;   // keep literal markdown
+            el.replaceWith(pre);
+            return pre;
+        """, block_element, md)
 
-        classes_to_remove = ['navigation-not-searchable', 'navbox']
-        try:
-            for class_to_remove in classes_to_remove:
-                elem_to_remove = self.main_page_elem.find_element(By.CLASS_NAME, class_to_remove)
-                self.browser.execute_script("arguments[0].remove()", elem_to_remove)
-        except Exception:
-            pass
+    def process_heading(self, heading_el):
+        md = self.convert_heading_to_md(heading_el)
+        return self.browser.execute_script("""
+            const el  = arguments[0];
+            const md  = arguments[1];
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.margin = '0';
+            pre.setAttribute('data-replaced-heading', '1');
+            pre.textContent = md;
+            el.replaceWith(pre);
+            return pre;
+        """, heading_el, md)
+
+    def remove_excess_elems(self):
+        # Remove common non-content blocks inside the article body
+        selectors = [
+            "#toc",  # classic TOC (your example)
+            ".toc",  # fallback TOC class
+            ".vector-toc",  # Vector skin TOC
+            "nav.vector-toc",  # Vector nav-based TOC
+            ".mw-editsection",  # little [edit] links next to headings
+            ".navigation-not-searchable",  # ad/aux boxes (present in your HTML)
+            ".navbox",  # big footer nav templates
+            ".content-ad",  # ad slots
+            ".printfooter",  # “Retrieved from …”
+            "#catlinks"  # categories
+        ]
+        for sel in selectors:
+            try:
+                for el in self.main_page_elem.find_elements(By.CSS_SELECTOR, sel):
+                    self.browser.execute_script("arguments[0].remove()", el)
+            except Exception:
+                # Keep going even if a selector doesn't match on a page
+                continue
 
     def scrape_mechanic_text(self, mechanic_title) -> str | None:
         try:
@@ -222,6 +319,8 @@ class MechanicsScraper(BaseScraper):
             self.browse(urljoin(self.dota_wiki_base_url, mechanic_title))
             self.get_main_page_elem()
             self.remove_excess_elems()
+
+            # tables
             all_tables = self.main_page_elem.find_elements(By.TAG_NAME, "table")
             table_elements = [
                 el for el in all_tables
@@ -234,6 +333,28 @@ class MechanicsScraper(BaseScraper):
                 ), el)
                 for el in table_elements
             ]
+            # skill lists
+            all_skilllists = self.main_page_elem.find_elements(By.CSS_SELECTOR, "div.skilllist")
+            skilllist_elements = [
+                el for el in all_skilllists
+                if el.get_attribute("textContent")
+                   and not self.browser.execute_script("return !!arguments[0].querySelector('div.skilllist')", el)
+            ]
+            skilllist_depths = [
+                (self.browser.execute_script("let d=0,n=arguments[0]; while(n=n.parentElement){d++} return d;", el), el)
+                for el in skilllist_elements
+            ]
+            # headings
+            all_headings = self.main_page_elem.find_elements(By.CSS_SELECTOR, "h2, h3, h4, h5, h6")
+            heading_depths = [
+                (self.browser.execute_script("let d=0,n=arguments[0]; while(n=n.parentElement){d++} return d;", el), el)
+                for el in all_headings
+            ]
+            for _, h in sorted(heading_depths, key=lambda x: x[0], reverse=True):
+                try:
+                    self.process_heading(h)
+                except StaleElementReferenceException:
+                    continue
         except Exception as err:
             logger.error(f"failed to scrape mechanic: {mechanic_title}")
             logger.error(f"The following error occurred: {err}")
@@ -247,7 +368,18 @@ class MechanicsScraper(BaseScraper):
             except Exception as err:
                 logger.error(f"failed to scrape mechanic: {mechanic_title}")
                 logger.error(f"The following error occurred: {err}")
+
+        for _, block_el in sorted(skilllist_depths, key=lambda x: x[0], reverse=True):
+            try:
+                self.process_skilllist(block_el)
+            except StaleElementReferenceException:
+                continue
+            except Exception as err:
+                logger.error(f"failed to scrape mechanic: {mechanic_title}")
+                logger.error(f"The following error occurred: {err}")
+
         text = self.main_page_elem.get_attribute("textContent")
+        text = f"# {mechanic_title}\n\n" + text
         logger.info(f"Finished scraping {mechanic_title}")
         return text
 
@@ -276,5 +408,6 @@ class MechanicsScraper(BaseScraper):
 
 
 if __name__ == '__main__':
+    # TODO: fix the mechanic page titles that are actually sub page of another page
     mechanics_scraper = MechanicsScraper()
     mechanics_scraper.scrape_mechanics('mechanics')
