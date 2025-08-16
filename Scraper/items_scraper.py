@@ -12,8 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.common.exceptions import NoSuchElementException
-
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 
 logger = ChatDota2Logger()
 
@@ -167,15 +166,79 @@ class ItemsScraper(BaseScraper):
 
         return sections["active artifacts"][1], sections["active enchantments"][1]
 
+    def remove_excess_elems(self):
+        # Remove common non-content blocks inside the article body
+        selectors = [
+            "#toc",  # classic TOC (your example)
+            ".toc",  # fallback TOC class
+            ".vector-toc",  # Vector skin TOC
+            "nav.vector-toc",  # Vector nav-based TOC
+            ".mw-editsection",  # little [edit] links next to headings
+            ".navigation-not-searchable",  # ad/aux boxes (present in your HTML)
+            ".navbox",  # big footer nav templates
+            ".content-ad",  # ad slots
+            ".printfooter",  # “Retrieved from …”
+            "#catlinks"  # categories
+        ]
+        for sel in selectors:
+            try:
+                for el in self.main_page_elem.find_elements(By.CSS_SELECTOR, sel):
+                    self.browser.execute_script("arguments[0].remove()", el)
+            except Exception:
+                # Keep going even if a selector doesn't match on a page
+                continue
+
+    @staticmethod
+    def convert_heading_to_md(heading_el) -> str:
+        level = int(heading_el.tag_name[1])  # "h2" → 2
+        text = heading_el.get_attribute("textContent").strip()
+        # Clamp level to a reasonable range (e.g. h1–h6 → #–######)
+        level = min(max(level, 1), 6)
+        return "\n\n" + ("#" * level) + " " + text + "\n\n"
+
+    def process_heading(self, heading_el):
+        md = self.convert_heading_to_md(heading_el)
+        return self.browser.execute_script("""
+            const el  = arguments[0];
+            const md  = arguments[1];
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.margin = '0';
+            pre.setAttribute('data-replaced-heading', '1');
+            pre.textContent = md;
+            el.replaceWith(pre);
+            return pre;
+        """, heading_el, md)
+
     def scrape_item_text(self, item_title: str) -> str | None:
         try:
             logger.info(f"Starting to scrape {item_title}")
             self.browse(urljoin(self.dota_wiki_base_url, item_title))
-            text = self.get_main_page_elem().text
+            self.get_main_page_elem()
+            self.remove_excess_elems()
+
+            try:
+                all_headings = self.main_page_elem.find_elements(By.CSS_SELECTOR, "h2, h3, h4, h5, h6")
+                heading_depths = [
+                    (self.browser.execute_script("let d=0,n=arguments[0]; while(n=n.parentElement){d++} return d;", el),
+                     el)
+                    for el in all_headings
+                ]
+                for _, h in sorted(heading_depths, key=lambda x: x[0], reverse=True):
+                    try:
+                        self.process_heading(h)
+                    except StaleElementReferenceException:
+                        continue
+            except Exception as err:
+                logger.error(f"failed to scrape item: {item_title}")
+                logger.error(f"The following error occurred: {err}")
+                return None
+
+            text = self.get_main_page_elem().get_attribute('textContent')
             logger.info(f"Finished scraping {item_title}")
             return text
         except Exception as err:
-            logger.error(f"failed to scrape mechanic: {item_title}")
+            logger.error(f"failed to scrape item: {item_title}")
             logger.error(f"The following error occurred: {err}")
 
     def scrape_all_items(self, path: str) -> None:
