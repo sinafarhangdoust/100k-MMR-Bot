@@ -145,53 +145,81 @@ class MechanicsScraper(BaseScraper):
     def convert_table_to_md(table_html) -> str:
         soup = BeautifulSoup(table_html, "lxml")
         soup = (
-        soup.select_one("table.mw-datatable")
-        or soup.select_one("table.sortable")
-        or soup.select_one("table:has(thead)")
-        or soup.find_all("table")[-1]
+                soup.select_one("table.mw-datatable")
+                or soup.select_one("table.sortable")
+                or soup.select_one("table:has(thead)")
+                or soup.find_all("table")[-1]
         )
 
-        # Make <th> text like "Base Strength", "+ Strength / LVL", "L30 Strength", etc.
+        # Normalize header cells
         for th in soup.select("thead th"):
             label = th.get_text(" ", strip=True)
             a = th.find("a", title=True)
-            if a and a["title"] and a["title"] not in label:
+            if a and a.get("title") and a["title"] not in label:
                 label = f"{label} {a['title']}".strip()
             th.string = label
 
-        # First column: keep the hero name text
+        # robustly extract names from icon-only cells in first column
         for td in soup.select("tbody td:first-child"):
-            # Prefer an <a> that points to a /dota2/... page and has visible text
-            chosen = None
+            names = []
             for a in td.select("a[title]"):
-                text = a.get_text(strip=True)
-                href = a.get("href", "")
-                if text and href.startswith("/dota2/"):
-                    chosen = a
-                    break
-            # Fallback: last <a> with any non-empty text
-            if not chosen:
-                anchors = [a for a in td.select("a") if a.get_text(strip=True)]
-                chosen = anchors[-1] if anchors else None
+                t = (a.get("title") or "").strip()
+                if t:
+                    names.append(t)
+            if not names:
+                for img in td.select("img[alt]"):
+                    t = (img.get("alt") or "").strip()
+                    if t:
+                        names.append(t)
+            if not names:
+                chosen = None
+                for a in td.select("a[title]"):
+                    text = a.get_text(strip=True)
+                    href = a.get("href", "")
+                    if text and href.startswith("/dota2/"):
+                        chosen = a
+                        break
+                if not chosen:
+                    anchors = [a for a in td.select("a") if a.get_text(strip=True)]
+                    chosen = anchors[-1] if anchors else None
+                if chosen:
+                    names = [chosen.get_text(strip=True)]
+                else:
+                    names = [(td.get_text(" ", strip=True) or "-")]
+            deduped = list(dict.fromkeys(names))
+            td.clear()
+            td.append(", ".join(deduped))
+            # ----------------------------------------------------
 
-            if chosen:
+            # --------- NEW: general, table-wide sanitation ---------
+            # 1) Drop anything explicitly hidden (common sort keys live here)
+        for el in soup.select("[style*='display:none'], [style*='visibility:hidden'], span.sortkey"):
+            el.decompose()
+
+            # 2) Prefer <abbr title="..."> over its visible text (numbers or expansions)
+        for ab in soup.select("abbr[title]"):
+            title = (ab.get("title") or "").strip()
+            if title:
+                ab.replace_with(title)
+
+            # 3) After removing hidden nodes, strip any leftover leading sort codes like "a1", "b7", etc.
+            #    Keep this conservative: only at start, letter+digits, then optional punctuation/space.
+        import re
+        for td in soup.select("tbody td"):
+            text = td.get_text(" ", strip=True)
+            cleaned = re.sub(r"^[A-Za-z]\d+(?=\s|/|,|\.|\d|$)\s*", "", text)
+            if cleaned != text:
                 td.clear()
-                # Plain name:
-                td.append(chosen.get_text(strip=True))
-                # OR, if you want Markdown links instead, use:
-                # name, href = chosen.get_text(strip=True), chosen.get("href", "")
-                # td.append(f"[{name}]({href})")
-            else:
-                td.string = td.get_text(" ", strip=True)
+                td.append(cleaned)
+        # -------------------------------------------------------
 
         df = pd.read_html(StringIO(str(soup)), flavor="bs4", displayed_only=False)[0]
         df = df.astype("string")
         df.fillna("-", inplace=True)
-
         return '\n\n' + df.to_markdown(index=False) + '\n\n'
 
     @staticmethod
-    def convert_skilllist_to_md(block_html) -> str:
+    def convert_skill_list_to_md(block_html) -> str:
         soup = BeautifulSoup(block_html, "lxml")
         root = soup.select_one("div.skilllist") or soup
         title_el = root.select_one(".skilllist-title")
@@ -261,9 +289,9 @@ class MechanicsScraper(BaseScraper):
                             return pre;
                         """, table_element, table_text)
 
-    def process_skilllist(self, block_element):
+    def process_skill_list(self, block_element):
         html = block_element.get_attribute("outerHTML")
-        md = self.convert_skilllist_to_md(html)
+        md = self.convert_skill_list_to_md(html)
         # Return the <pre> so we never touch the stale block handle again
         return self.browser.execute_script("""
             const el  = arguments[0];
@@ -334,15 +362,15 @@ class MechanicsScraper(BaseScraper):
                 for el in table_elements
             ]
             # skill lists
-            all_skilllists = self.main_page_elem.find_elements(By.CSS_SELECTOR, "div.skilllist")
-            skilllist_elements = [
-                el for el in all_skilllists
+            all_skill_lists = self.main_page_elem.find_elements(By.CSS_SELECTOR, "div.skilllist")
+            skill_list_elements = [
+                el for el in all_skill_lists
                 if el.get_attribute("textContent")
                    and not self.browser.execute_script("return !!arguments[0].querySelector('div.skilllist')", el)
             ]
-            skilllist_depths = [
+            skill_list_depths = [
                 (self.browser.execute_script("let d=0,n=arguments[0]; while(n=n.parentElement){d++} return d;", el), el)
-                for el in skilllist_elements
+                for el in skill_list_elements
             ]
             # headings
             all_headings = self.main_page_elem.find_elements(By.CSS_SELECTOR, "h2, h3, h4, h5, h6")
@@ -369,9 +397,9 @@ class MechanicsScraper(BaseScraper):
                 logger.error(f"failed to scrape mechanic: {mechanic_title}")
                 logger.error(f"The following error occurred: {err}")
 
-        for _, block_el in sorted(skilllist_depths, key=lambda x: x[0], reverse=True):
+        for _, block_el in sorted(skill_list_depths, key=lambda x: x[0], reverse=True):
             try:
-                self.process_skilllist(block_el)
+                self.process_skill_list(block_el)
             except StaleElementReferenceException:
                 continue
             except Exception as err:
