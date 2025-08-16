@@ -5,7 +5,6 @@ from typing import List, Tuple
 import re
 
 from base_scraper import BaseScraper
-
 from custom_logger.custom_logger import ChatDota2Logger
 
 from selenium.webdriver.common.by import By
@@ -13,6 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from bs4 import BeautifulSoup
 
 logger = ChatDota2Logger()
 
@@ -196,6 +196,192 @@ class ItemsScraper(BaseScraper):
         level = min(max(level, 1), 6)
         return "\n\n" + ("#" * level) + " " + text + "\n\n"
 
+    @staticmethod
+    def convert_item_infobox_to_md(html: str) -> str:
+        import re
+        from bs4 import BeautifulSoup
+
+        def _maybe_seconds(label: str, value: str) -> str:
+            if label.strip().lower() == "stock" and re.fullmatch(r"\d+(?:\.\d+)?", value):
+                return f"{value} seconds"
+            return value
+
+        def sanitize_cell(node, prefer_abbr_title: bool = True):
+            for el in node.select("[style*='display:none'], [style*='visibility:hidden'], span.sortkey"):
+                el.decompose()
+
+            # Use abbr TITLE or TEXT depending on context
+            for ab in node.select("abbr[title]"):
+                if prefer_abbr_title:
+                    t = (ab.get("title") or "").strip()
+                else:
+                    t = (ab.get_text(" ", strip=True) or "").strip()
+                if t:
+                    ab.replace_with(t)
+
+            for icon in node.select("span[title]"):
+                tt = (icon.get("title") or "").strip()
+                if tt in {"Yes", "No"}:
+                    icon.replace_with(tt)
+
+            for br in node.find_all("br"):
+                br.replace_with(" · ")
+
+            for img in node.find_all("img"):
+                if img.get("alt"):
+                    img.replace_with(img["alt"])
+                else:
+                    img.decompose()
+
+            text = re.sub(r"\s+", " ", node.get_text(" ", strip=True)).strip()
+            text = re.sub(r"^[A-Za-z]\d+(?=\s|/|,|\.|\d|$)\s*", "", text)
+            return text
+
+        def parse_recipe(cell):
+            names = []
+            for a in cell.select("a[title]"):
+                t = (a["title"] or "").strip()
+                t = re.sub(r"\s*\(\d+(?:\.\d+)?\)\s*$", "", t)
+                if t:
+                    names.append(t)
+            names = list(dict.fromkeys(names))
+            return ", ".join(names) if names else sanitize_cell(cell)
+
+        # ---------- NEW: include “Recipe” when parsing the diagram rows ----------
+        def parse_recipe_block(recipe_header_tr, current_title: str):
+            titles = []
+            consumed_tr_ids = set()
+
+            tr = recipe_header_tr.find_next_sibling("tr")
+            steps = 0
+            while tr is not None and steps < 3:
+                anchors = tr.select("a[title]")
+                if not anchors:
+                    break
+                for a in anchors:
+                    t = (a.get("title") or "").strip()
+                    # strip trailing costs e.g. "Recipe (650)" -> "Recipe"
+                    t = re.sub(r"\s*\(\d+(?:\.\d+)?\)\s*$", "", t)
+                    if t:
+                        titles.append(t)  # keep Recipe!
+                consumed_tr_ids.add(id(tr))
+                tr = tr.find_next_sibling("tr")
+                steps += 1
+
+            ordered = list(dict.fromkeys(titles))
+
+            builds_from, upgrades_into = [], []
+            if current_title and current_title in ordered:
+                idx = ordered.index(current_title)
+                upgrades_into = ordered[:idx]
+                builds_from = ordered[idx + 1:]
+            else:
+                upgrades_into = ordered
+
+            return builds_from, upgrades_into, consumed_tr_ids
+
+        # ------------------------------------------------------------------------
+
+        soup = BeautifulSoup(html, "lxml")
+        box = soup.select_one("table.fo-nttax-infobox-wrapper.fo-nttax-infobox")
+        if not box:
+            return ""
+
+        # Title
+        title_el = box.select_one("th > div > div[style*='text-align:center']")
+        title = ""
+        if title_el:
+            ab = title_el.find("abbr")
+            if ab:
+                title = (ab.get_text(" ", strip=True) or ab.get("title") or "").strip()
+            else:
+                title = title_el.get_text(" ", strip=True)
+
+        # Flavor
+        flavor = ""
+        italic_td = box.find("td", attrs={"style": re.compile(r"font-style:\s*italic", re.I)})
+        if italic_td:
+            flavor = italic_td.get_text(" ", strip=True)
+
+        detail = box.select_one("table[style*='text-align:left']")
+        if not detail:
+            hdr = f"### {title}\n\n" if title else ""
+            flav = f"> {flavor}\n\n" if flavor else ""
+            return hdr + flav
+
+        rows = []
+        last_label = None
+        skip_tr_ids = set()
+        deferred_recipe_rows = []
+
+        for tr in detail.select("tr"):
+            if id(tr) in skip_tr_ids:
+                continue
+
+            th = tr.find("th")
+            tds = tr.find_all("td")
+
+            # Section header (colspan)
+            if th and th.has_attr("colspan"):
+                header_raw = (th.get_text(" ", strip=True) or "").strip().lower()
+
+                if header_raw == "recipe":
+                    builds_from, upgrades_into, consumed = parse_recipe_block(tr, title)
+                    skip_tr_ids |= consumed
+                    if builds_from:
+                        deferred_recipe_rows.append(("Builds From", " + ".join(builds_from)))
+                    if upgrades_into:
+                        deferred_recipe_rows.append(("Upgrades Into", ", ".join(upgrades_into)))
+                    continue
+
+                section = sanitize_cell(th)
+                if section:
+                    rows.append(("— " + section + " —", ""))
+                continue
+
+            # Regular row
+            if th and tds:
+                label = sanitize_cell(th, prefer_abbr_title=False)  # prefer visible text for labels
+                value_td = tds[-1]
+                value = sanitize_cell(value_td)
+                value = _maybe_seconds(label, value)
+
+                if label:
+                    rows.append((label, value))
+                    last_label = label
+                else:
+                    if rows and rows[-1][0] == last_label:
+                        rows[-1] = (last_label, (rows[-1][1] + " · " + value) if rows[-1][1] else value)
+                    else:
+                        rows.append((last_label or "", value))
+                continue
+
+            # Continuation lines (rowspan)
+            if not th and len(tds) >= 1 and last_label:
+                value = sanitize_cell(tds[-1])
+                value = _maybe_seconds(last_label, value)
+                if rows and rows[-1][0] == last_label:
+                    rows[-1] = (last_label, (rows[-1][1] + " · " + value) if rows[-1][1] else value)
+                else:
+                    rows.append((last_label, value))
+
+        rows.extend(deferred_recipe_rows)
+
+        out = []
+        if title:
+            out.append(f"### {title}\n\n")
+        if flavor:
+            out.append(f"> {flavor}\n\n")
+        if rows:
+            out.append("| Property | Value |\n|---|---|\n")
+            for k, v in rows:
+                if k.startswith("— ") and k.endswith(" —"):
+                    out.append(f"| *{k[2:-2].strip()}* | |\n")
+                else:
+                    out.append(f"| {k} | {v or '-'} |\n")
+            out.append("\n")
+        return "".join(out)
+
     def process_heading(self, heading_el):
         md = self.convert_heading_to_md(heading_el)
         return self.browser.execute_script("""
@@ -209,6 +395,20 @@ class ItemsScraper(BaseScraper):
             el.replaceWith(pre);
             return pre;
         """, heading_el, md)
+
+    def process_item_infobox(self, infobox_el):
+        html = infobox_el.get_attribute("outerHTML")
+        md = self.convert_item_infobox_to_md(html)
+        return self.browser.execute_script("""
+            const md  = arguments[1];
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.margin = '0';
+            pre.setAttribute('data-replaced-infobox', '1');
+            pre.textContent = md;
+            arguments[0].replaceWith(pre);
+            return pre;
+        """, infobox_el, md)
 
     def scrape_item_text(self, item_title: str) -> str | None:
         try:
@@ -224,9 +424,23 @@ class ItemsScraper(BaseScraper):
                      el)
                     for el in all_headings
                 ]
+                infoboxes = self.main_page_elem.find_elements(
+                    By.CSS_SELECTOR,
+                    "table.fo-nttax-infobox-wrapper.fo-nttax-infobox, table.fo-nttax-infobox"
+                )
+                infobox_depths = [
+                    (self.browser.execute_script("let d=0,n=arguments[0]; while(n=n.parentElement){d++} return d;", el),
+                     el)
+                    for el in infoboxes
+                ]
                 for _, h in sorted(heading_depths, key=lambda x: x[0], reverse=True):
                     try:
                         self.process_heading(h)
+                    except StaleElementReferenceException:
+                        continue
+                for _, ib in sorted(infobox_depths, key=lambda x: x[0], reverse=True):
+                    try:
+                        self.process_item_infobox(ib)
                     except StaleElementReferenceException:
                         continue
             except Exception as err:
@@ -270,7 +484,7 @@ class ItemsScraper(BaseScraper):
             if not os.path.exists(category_path):
                 os.makedirs(category_path)
             for item_text in items_texts:
-                with open(os.path.join(category_path, item_text['name'] + '.txt'), 'w') as item_file:
+                with open(os.path.join(category_path, item_text['name'] + '.md'), 'w') as item_file:
                         item_file.write(item_text['text'])
 
 
