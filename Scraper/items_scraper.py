@@ -198,8 +198,6 @@ class ItemsScraper(BaseScraper):
 
     @staticmethod
     def convert_item_infobox_to_md(html: str) -> str:
-        import re
-        from bs4 import BeautifulSoup
 
         def _maybe_seconds(label: str, value: str) -> str:
             if label.strip().lower() == "stock" and re.fullmatch(r"\d+(?:\.\d+)?", value):
@@ -236,16 +234,6 @@ class ItemsScraper(BaseScraper):
             text = re.sub(r"\s+", " ", node.get_text(" ", strip=True)).strip()
             text = re.sub(r"^[A-Za-z]\d+(?=\s|/|,|\.|\d|$)\s*", "", text)
             return text
-
-        def parse_recipe(cell):
-            names = []
-            for a in cell.select("a[title]"):
-                t = (a["title"] or "").strip()
-                t = re.sub(r"\s*\(\d+(?:\.\d+)?\)\s*$", "", t)
-                if t:
-                    names.append(t)
-            names = list(dict.fromkeys(names))
-            return ", ".join(names) if names else sanitize_cell(cell)
 
         # ---------- NEW: include “Recipe” when parsing the diagram rows ----------
         def parse_recipe_block(recipe_header_tr, current_title: str):
