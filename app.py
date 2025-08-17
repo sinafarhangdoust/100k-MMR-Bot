@@ -4,6 +4,54 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agents.agents import get_llm_agent
 from tools import tools_mapping
+from tools.opendota_client import init_heroes, resolve_hero_ids, counter_scores, HERO_IMG, HEROES
+
+#TODO Change this to use the SCRAPER method
+def hero_name(hid: int) -> str:
+    return HEROES[hid]["localized_name"]
+
+@cl.on_chat_start
+async def on_start():
+    await init_heroes()
+    await cl.Message("Draft Coach ready. Type:\n`counterpicks: pudge, storm spirit`\nI’ll show top counters + pics.").send()
+
+@cl.on_message
+async def on_message(msg: cl.Message):
+    text = msg.content.strip().lower()
+    if text.startswith("counterpicks:"):
+        # parse enemy list
+        raw = text.split("counterpicks:", 1)[1]
+        enemies = [x.strip() for x in raw.split(",") if x.strip()]
+        enemy_ids = resolve_hero_ids(enemies)
+        if not enemy_ids:
+            return await cl.Message("I couldn't resolve any enemy heroes. Try: `counterpicks: pudge, storm spirit`.").send()
+
+        # exclude already picked heroes (here we only exclude enemies; extend as needed)
+        exclude = set(enemy_ids)
+
+        # compute counters (top 5)
+        results = await counter_scores(enemy_ids, list(exclude))
+        top = [r for r in results if r[2] > 200][:5]  # require some samples
+
+        # build images + explanation
+        elements = []
+        lines = []
+        for hid, score, samples in top:
+            nm = hero_name(hid)
+            img = HERO_IMG.get(hid)
+            if img:
+                elements.append(cl.Image(url=img, name=nm, display="side"))
+            lines.append(f"**{nm}** — counter score: `{score:.2f}` (samples: {samples})")
+
+        expl = (
+            "Here are strong counters based on aggregated matchup winrates "
+            "weighted by sample size (OpenDota)."
+        )
+        await cl.Message("\n".join([expl, "", *lines]), elements=elements).send()
+        return
+
+
+
 
 def chat_setup():
     llm_agent = get_llm_agent(model='gpt-4.1-mini', temperature=0.0)
