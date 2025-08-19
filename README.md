@@ -3,7 +3,7 @@
 
 The most accurate DOTA 2 AI Assistant. 
 
-## How to run locally 
+## How to run 100K MMR Bot locally 
 
 1. Get an OpenAI API key. You will need to add it as an environment variable `OPENAI_API_KEY=<your-api-key>`.
 2. Get a LangSmith API key. 
@@ -28,3 +28,10 @@ The most accurate DOTA 2 AI Assistant.
     LANGSMITH_PROJECT=100k-mmr-bot
     LANGSMITH_TRACING=true
     ```
+
+## How to scrape data
+
+1. Navigate to Scraper directory.
+2. Run `hero_scraper.py` to scrape all the heroes. (You can modify the output path inside main)
+3. Run `items_scraper.py` to scrape all the items. (You can modify the output path inside main)
+4. Run `mechanics_scraper.py` to scrape all the mechanics. (ou can modify the output path inside main)
