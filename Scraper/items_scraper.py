@@ -12,7 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup,NavigableString
 
 logger = ChatDota2Logger()
 
@@ -394,8 +394,6 @@ class ItemsScraper(BaseScraper):
         - If tabs_html is provided (the HTML of the nearest .tabs-dynamic),
           it appends a **Show All** section which merges the tabbed content.
         """
-        import re
-        from bs4 import BeautifulSoup, NavigableString
 
         soup = BeautifulSoup(html, "lxml")
 
