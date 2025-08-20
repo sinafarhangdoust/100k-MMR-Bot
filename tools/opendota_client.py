@@ -5,6 +5,8 @@ import math
 #TODO cache hero_matchups() results in memory for the session (dict of cid -> list) with a TTL; OpenDota’s free tier is limited
 #TODO Role filter: add role=offlane to only show counters that fit your lineup (roles come from heroStats).
 #TODO UI polish: add quick-reply buttons to “Lock in” a suggested hero and keep a running pick/ban board.
+#TODO GRAPH UI: make it controllable by LLM give certain outputs that can be drawn on the graph, (barplot, spiderplot for which one to ban more immediately)
+#TODO RAG for pick, perhaps cache maybe memory todo 1
 
 
 CDN = "https://cdn.cloudflare.steamstatic.com"
