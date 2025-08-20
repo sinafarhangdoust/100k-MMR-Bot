@@ -805,4 +805,4 @@ if __name__ == '__main__':
     # TODO: Kez, Lone Druid, Slark, Troll Warlord, Weaver, Chen, Silencer, Winter Wyvern, Nyx Assassin, Sand King
     hero_scraper = HeroScraper()
     #hero_scraper.scrape_hero_page("tiny")
-    hero_scraper.scrape_all_heroes("hero_data")
+    hero_scraper.scrape_all_heroes("heroes")

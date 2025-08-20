@@ -19,7 +19,7 @@ class HeroDB:
             return
 
         self.heroes = {}
-        for file in glob.glob("hero_data/*"):
+        for file in glob.glob("heroes/*"):
             with open(file) as json_file:
                 hero_data = json.load(json_file)
             self.heroes[hero_data['name']] = hero_data
