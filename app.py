@@ -4,11 +4,14 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agents.agents import get_llm_agent
 from tools import tools_mapping
+from tools.dota_db import DotaDB
 
 def chat_setup():
-    llm_agent = get_llm_agent(model='gpt-4.1-mini', temperature=0.0)
+    reasoning = {'reasoning': {'effort': 'minimal', 'summary': None}}
+    llm_agent = get_llm_agent(model='gpt-5-nano')
     cl.user_session.set('llm_agent', llm_agent)
     cl.user_session.set('chat_history', [])
+    cl.user_session.set('dota_db', DotaDB())
     # cl.user_session.set('langsmith_client', LangsmithClient())
 
 @cl.password_auth_callback

@@ -2,6 +2,10 @@ import glob
 import json
 from threading import Lock
 
+from utils import instantiate_s3_client
+from config import S3_BUCKET_NAME
+
+
 class HeroDB:
     _instance = None
     _lock = Lock()
@@ -18,7 +22,10 @@ class HeroDB:
         if hasattr(self, "_initialized") and self._initialized:
             return
 
+        self.s3_client = instantiate_s3_client()
+
         self.heroes = {}
+        items = self.s3_client.list_objects(Bucket=S3_BUCKET_NAME)
         for file in glob.glob("heroes/*"):
             with open(file) as json_file:
                 hero_data = json.load(json_file)
