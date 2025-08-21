@@ -38,3 +38,29 @@ HEROES = Literal[
     "enigma", "io", "magnus", "marci", "natures_prophet", "nyx_assassin", "pangolier", "sand_king",
     "snapfire", "spectre", "techies", "venomancer", "visage", "void_spirit", "windranger"
 ]
+
+MECHANICS = Literal[
+    'Abilities', 'Accuracy', 'Agility', 'Ancient', 'Armor Manipulation', 'Armor', 'Armory', 'Attack Damage',
+    'Attack Range', 'Attack Speed', 'Attack animation', 'Attack backswing', 'Attack immunity', 'Attack point',
+    'Attributes', 'Aura', 'Ban', 'Banish', 'Barracks', 'Barrier', 'Bash', 'Basic dispel', 'Blind', 'Blink', 'Break',
+    'Buildings', 'Buyback', 'Cast animation', 'Cast backswing', 'Cast point', 'Channeling', 'Chat wheel', 'Cheats',
+    'Collision Size', 'Commend', 'Console commands', 'Controls', 'Cooldown', 'Courier', 'Creep control techniques',
+    'Creeps', 'Critical strike', 'Custom Games', 'Cyclone', 'Damage Barrier', 'Damage Block', 'Damage Types',
+    'Damage amplification', 'Damage manipulation', 'Damage negation', 'Damage over time', 'Damage reduction',
+    'Debuff immunity', 'Denying', 'Disarm', 'Disassembling', 'Disjoint', 'Drop list', 'Effective HP', 'Ethereal',
+    'Evasion', 'Events', 'Experience', 'Expose', 'Farming', 'Fear', 'Flying vision', 'Forced movement', 'Game map',
+    'Game modes', 'Ganking', 'Gems', 'Gifting', 'Gold', 'Ground vision', 'HP Removal', 'HUD', 'Health Regeneration',
+    'Health', 'Hex', 'Hidden', 'Hide', 'Hotkeys', 'Hypnosis', 'Illusions', 'Initiating', 'Instant Attack',
+    'Intelligence', 'Invisibility', 'Invulnerability', 'Item drop system', 'Item sharing', 'Items', 'Jungle',
+    'Jungling', 'Lane creeps', 'Lanes', 'Launch Options', 'Leash', 'Lifesteal', 'Magic Resistance', 'Magical Damage',
+    'Mana Regeneration', 'Mana break', 'Mana', 'Matchmaking Rating', 'Minimap', 'Modding', 'Movement Speed', 'Music',
+    'Mute', 'Neutral creeps', 'Outposts', 'Patches', 'Phased', 'Physical Damage', 'Player Behavior Summary', 'Priority',
+    'Projectile speed', 'Pseudo-random distribution', 'Pure Damage', 'Pushing', 'Quality', 'Rarity', 'Recipes',
+    'Replay', 'Report', 'Restoration Manipulation', 'Roles', 'Root', 'Runes', 'Scan', 'Shackle', 'Shared vision',
+    'Shops', 'Silence', 'Slow Resistance', 'Slow', 'Spectating', 'Spell Damage', 'Spell amplification', 'Spell damage',
+    'Spell immunity', 'Spell lifesteal', 'Status Resistance', 'Steam Market', 'Strength', 'Strong dispel', 'Stun',
+    'Summons', 'Talents', 'Taunt', 'Teleport', 'Time of day', 'Total Attack Damage', 'Towers', 'Trading', 'Trap',
+    'Trees', 'True Strike', 'True random distribution', 'True sight', 'Turn Rate', 'Versions', 'Vision', 'Wards'
+]
+
+ITEMS = Literal[""]
