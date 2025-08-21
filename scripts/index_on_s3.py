@@ -1,29 +1,12 @@
 import argparse
 import os
-from pathlib import Path
 
 import boto3
 from aiohttp import ClientError
-from botocore.config import Config
+
+from utils import instantiate_s3_client
 
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-
-def instantiate_s3_client():
-    cfg = Config(
-        region_name='eu-west-1',
-        connect_timeout=60,
-        read_timeout=60,
-        retries={"max_attempts": 10, "mode": "standard"},
-        signature_version="s3v4",
-    )
-    return boto3.client(
-        "s3",
-        endpoint_url="http://localhost:4566",
-        aws_access_key_id="test",
-        aws_secret_access_key="test",
-        aws_session_token="test",
-        config=cfg,
-    )
 
 def index_on_s3(
     s3_client: boto3.client,
