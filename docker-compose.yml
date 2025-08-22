@@ -1,0 +1,16 @@
+services:
+  localstack_mmr:
+    image: localstack/localstack:latest
+    ports:
+      - "4567:4567"
+    environment:
+      - EDGE_PORT=4567              # internal LocalStack port
+      - DEBUG=1                     # optional: more logs for debugging
+      - LOCALSTACK_UI=1
+      - GATEWAY_LISTEN=0.0.0.0:4567
+      - PERSISTENCE=1
+      - SNAPSHOT_SAVE_STRATEGY=SCHEDULED
+      - SNAPSHOT_FLUSH_INTERVAL=5
+    volumes:
+      - "./.localstack:/var/lib/localstack"  # local persistence directory
+      - "/var/run/docker.sock:/var/run/docker.sock"
