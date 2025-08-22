@@ -17,7 +17,7 @@ def get_thread_history_from_langsmith(
     # The current state of the conversation
     return runs[0].inputs['messages'] + [runs[0].outputs['choices'][0]['message']]
 
-def instantiate_s3_client():
+def instantiate_s3_client(endpoint: str = "http://localhost:4566"):
     cfg = Config(
       region_name='eu-west-1',
       connect_timeout=60,
@@ -27,7 +27,7 @@ def instantiate_s3_client():
     )
     return boto3.client(
       "s3",
-      endpoint_url="http://localhost:4566",
+      endpoint_url=endpoint,
       aws_access_key_id="test",
       aws_secret_access_key="test",
       aws_session_token="test",

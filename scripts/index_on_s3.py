@@ -36,13 +36,13 @@ def index_files(
                 s3_client=s3_client,
                 file_path=os.path.join(dir_path, item),
                 bucket_name=S3_BUCKET_NAME,
-                s3_key=os.path.join(base_s3_dir, item)
+                s3_key=str(os.path.join(base_s3_dir, item)).lower()
             )
         else:
             index_files(
                 s3_client=s3_client,
                 dir_path=os.path.join(dir_path, item),
-                base_s3_dir=os.path.join(base_s3_dir, item)
+                base_s3_dir=str(os.path.join(base_s3_dir, item)).lower()
             )
 
 
@@ -51,7 +51,7 @@ def main(args):
     if not args.heroes_dir and not args.items_dir and not args.mechanics_dir:
         raise ValueError("Either --heroes-dir or --items-dir or --mechanics-dir must be specified")
 
-    s3_client = instantiate_s3_client()
+    s3_client = instantiate_s3_client(endpoint="http://localhost:4567")
 
     if args.heroes_dir:
         index_files(
