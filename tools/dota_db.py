@@ -43,10 +43,34 @@ class DotaDB:
         if hasattr(self, "_initialized") and self._initialized:
             return
 
-        self.s3_client = instantiate_s3_client()
+        self.s3_client = instantiate_s3_client(endpoint="http://localhost:4567")
 
         self.heroes = {}
         self.items = {}
         self.mechanics = {}
-        self.load_rag_storage()
         self._initialized = True
+
+
+    def get_hero(
+        self,
+        hero_name: str,
+    ):
+        if hero_name not in self.heroes:
+            loaded_obj = self.s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=f"heroes/{hero_name}.json")["Body"].read()
+            content = json.loads(loaded_obj.decode("utf-8"))
+            self.heroes[hero_name] = content
+
+        return self.heroes[hero_name]
+
+    def get_mechanic(
+        self,
+        mechanic_name: str,
+    ):
+        if mechanic_name not in self.mechanics:
+            loaded_obj = self.s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=f"mechanics/{mechanic_name}.md")["Body"].read()
+            content = loaded_obj.decode("utf-8")
+            self.mechanics[mechanic_name] = content
+
+        return self.mechanics[mechanic_name]
+
+

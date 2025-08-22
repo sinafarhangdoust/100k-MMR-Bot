@@ -40,27 +40,27 @@ HEROES = Literal[
 ]
 
 MECHANICS = Literal[
-    'Abilities', 'Accuracy', 'Agility', 'Ancient', 'Armor Manipulation', 'Armor', 'Armory', 'Attack Damage',
-    'Attack Range', 'Attack Speed', 'Attack animation', 'Attack backswing', 'Attack immunity', 'Attack point',
-    'Attributes', 'Aura', 'Ban', 'Banish', 'Barracks', 'Barrier', 'Bash', 'Basic dispel', 'Blind', 'Blink', 'Break',
-    'Buildings', 'Buyback', 'Cast animation', 'Cast backswing', 'Cast point', 'Channeling', 'Chat wheel', 'Cheats',
-    'Collision Size', 'Commend', 'Console commands', 'Controls', 'Cooldown', 'Courier', 'Creep control techniques',
-    'Creeps', 'Critical strike', 'Custom Games', 'Cyclone', 'Damage Barrier', 'Damage Block', 'Damage Types',
-    'Damage amplification', 'Damage manipulation', 'Damage negation', 'Damage over time', 'Damage reduction',
-    'Debuff immunity', 'Denying', 'Disarm', 'Disassembling', 'Disjoint', 'Drop list', 'Effective HP', 'Ethereal',
-    'Evasion', 'Events', 'Experience', 'Expose', 'Farming', 'Fear', 'Flying vision', 'Forced movement', 'Game map',
-    'Game modes', 'Ganking', 'Gems', 'Gifting', 'Gold', 'Ground vision', 'HP Removal', 'HUD', 'Health Regeneration',
-    'Health', 'Hex', 'Hidden', 'Hide', 'Hotkeys', 'Hypnosis', 'Illusions', 'Initiating', 'Instant Attack',
-    'Intelligence', 'Invisibility', 'Invulnerability', 'Item drop system', 'Item sharing', 'Items', 'Jungle',
-    'Jungling', 'Lane creeps', 'Lanes', 'Launch Options', 'Leash', 'Lifesteal', 'Magic Resistance', 'Magical Damage',
-    'Mana Regeneration', 'Mana break', 'Mana', 'Matchmaking Rating', 'Minimap', 'Modding', 'Movement Speed', 'Music',
-    'Mute', 'Neutral creeps', 'Outposts', 'Patches', 'Phased', 'Physical Damage', 'Player Behavior Summary', 'Priority',
-    'Projectile speed', 'Pseudo-random distribution', 'Pure Damage', 'Pushing', 'Quality', 'Rarity', 'Recipes',
-    'Replay', 'Report', 'Restoration Manipulation', 'Roles', 'Root', 'Runes', 'Scan', 'Shackle', 'Shared vision',
-    'Shops', 'Silence', 'Slow Resistance', 'Slow', 'Spectating', 'Spell Damage', 'Spell amplification', 'Spell damage',
-    'Spell immunity', 'Spell lifesteal', 'Status Resistance', 'Steam Market', 'Strength', 'Strong dispel', 'Stun',
-    'Summons', 'Talents', 'Taunt', 'Teleport', 'Time of day', 'Total Attack Damage', 'Towers', 'Trading', 'Trap',
-    'Trees', 'True Strike', 'True random distribution', 'True sight', 'Turn Rate', 'Versions', 'Vision', 'Wards'
+    'abilities', 'accuracy', 'agility', 'ancient', 'armor manipulation', 'armor', 'armory', 'attack damage',
+    'attack range', 'attack speed', 'attack animation', 'attack backswing', 'attack immunity', 'attack point',
+    'attributes', 'aura', 'ban', 'banish', 'barracks', 'barrier', 'bash', 'basic dispel', 'blind', 'blink', 'break',
+    'buildings', 'buyback', 'cast animation', 'cast backswing', 'cast point', 'channeling', 'chat wheel', 'cheats',
+    'collision size', 'commend', 'console commands', 'controls', 'cooldown', 'courier', 'creep control techniques',
+    'creeps', 'critical strike', 'custom games', 'cyclone', 'damage barrier', 'damage block', 'damage types',
+    'damage amplification', 'damage manipulation', 'damage negation', 'damage over time', 'damage reduction',
+    'debuff immunity', 'denying', 'disarm', 'disassembling', 'disjoint', 'drop list', 'effective hp', 'ethereal',
+    'evasion', 'events', 'experience', 'expose', 'farming', 'fear', 'flying vision', 'forced movement', 'game map',
+    'game modes', 'ganking', 'gems', 'gifting', 'gold', 'ground vision', 'hp removal', 'hud', 'health regeneration',
+    'health', 'hex', 'hidden', 'hide', 'hotkeys', 'hypnosis', 'illusions', 'initiating', 'instant attack',
+    'intelligence', 'invisibility', 'invulnerability', 'item drop system', 'item sharing', 'items', 'jungle',
+    'jungling', 'lane creeps', 'lanes', 'launch options', 'leash', 'lifesteal', 'magic resistance', 'magical damage',
+    'mana regeneration', 'mana break', 'mana', 'matchmaking rating', 'minimap', 'modding', 'movement speed', 'music',
+    'mute', 'neutral creeps', 'outposts', 'patches', 'phased', 'physical damage', 'player behavior summary', 'priority',
+    'projectile speed', 'pseudo-random distribution', 'pure damage', 'pushing', 'quality', 'rarity', 'recipes',
+    'replay', 'report', 'restoration manipulation', 'roles', 'root', 'runes', 'scan', 'shackle', 'shared vision',
+    'shops', 'silence', 'slow resistance', 'slow', 'spectating', 'spell damage', 'spell amplification', 'spell damage',
+    'spell immunity', 'spell lifesteal', 'status resistance', 'steam market', 'strength', 'strong dispel', 'stun',
+    'summons', 'talents', 'taunt', 'teleport', 'time of day', 'total attack damage', 'towers', 'trading', 'trap',
+    'trees', 'true strike', 'true random distribution', 'true sight', 'turn rate', 'versions', 'vision', 'wards'
 ]
 
 ITEMS = Literal[""]
