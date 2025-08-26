@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from langsmith import Client as LangsmithClient
@@ -19,17 +20,17 @@ def get_thread_history_from_langsmith(
 
 def instantiate_s3_client(endpoint: str = "http://localhost:4566"):
     cfg = Config(
-      region_name='eu-west-1',
-      connect_timeout=60,
-      read_timeout=60,
-      retries={"max_attempts": 10, "mode": "standard"},
-      signature_version="s3v4",
+        region_name='eu-west-1',
+        s3={"addressing_style": "path"},
+        connect_timeout=60,
+        read_timeout=60,
+        retries={"max_attempts": 5, "mode": "standard"},
+        signature_version="s3v4",
     )
     return boto3.client(
-      "s3",
-      endpoint_url=endpoint,
-      aws_access_key_id="test",
-      aws_secret_access_key="test",
-      aws_session_token="test",
-      config=cfg,
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", "admin"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "adminadmin"),
+        config=cfg,
     )

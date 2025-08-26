@@ -51,7 +51,7 @@ def main(args):
     if not args.heroes_dir and not args.items_dir and not args.mechanics_dir:
         raise ValueError("Either --heroes-dir or --items-dir or --mechanics-dir must be specified")
 
-    s3_client = instantiate_s3_client(endpoint="http://localhost:4567")
+    s3_client = instantiate_s3_client(endpoint="http://localhost:9000")
 
     if args.heroes_dir:
         index_files(
