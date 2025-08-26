@@ -43,7 +43,7 @@ class DotaDB:
         if hasattr(self, "_initialized") and self._initialized:
             return
 
-        self.s3_client = instantiate_s3_client(endpoint="http://localhost:4567")
+        self.s3_client = instantiate_s3_client(endpoint="http://localhost:9000")
 
         self.heroes = {}
         self.items = {}
