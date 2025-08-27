@@ -63,4 +63,8 @@ MECHANICS = Literal[
     'trees', 'true strike', 'true random distribution', 'true sight', 'turn rate', 'versions', 'vision', 'wards'
 ]
 
-ITEMS = Literal[""]
+ITEM_TYPE = Literal['shop', 'neutral', 'enchantment']
+
+SHOP_ITEMS = Literal[""]
+NEUTRAL_ITEMS = Literal[""]
+ENCHANTMENT_ITEMS = Literal[""]
