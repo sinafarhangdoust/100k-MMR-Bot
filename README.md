@@ -35,3 +35,9 @@ The most accurate DOTA 2 AI Assistant.
 2. Run `hero_scraper.py` to scrape all the heroes. (You can modify the output path inside main)
 3. Run `items_scraper.py` to scrape all the items. (You can modify the output path inside main)
 4. Run `mechanics_scraper.py` to scrape all the mechanics. (ou can modify the output path inside main)
+
+## How to index the scraped data
+1. Run `docker compose -f docker-compose.yml up -d`
+2. Run `index_on_s3.py` and provide the paths to the following arguments that you scraped earlier `--heroes-dir`, `--items-dir` and `--mechanics-dir`.
+3. From next time you can just run `docker compose -f docker-compose.yml up -d`.
+4. You can also access the s3 dashboard at http://localhost:9001

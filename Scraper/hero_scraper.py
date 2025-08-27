@@ -3,6 +3,7 @@ import os
 import time
 from urllib.parse import urljoin
 from typing import Tuple, List, Dict
+import re
 
 from base_scraper import BaseScraper
 from hero import Hero
@@ -310,6 +311,45 @@ class HeroScraper(BaseScraper):
             )
         return attributes
 
+    @staticmethod
+    def _normalize_interaction_key(s: str) -> str | None:
+        s = (s or "").lower()
+        if "debuff immunity" in s or "dbf immunity" in s or "spell immunity" in s or "bkb" in s:
+            return "spell_immunity"
+        if "spell block" in s or "linken" in s:
+            return "spell_block"
+        if "spell reflection" in s or "reflect" in s:
+            return "spell_reflection"
+        # Try last URL segment as a fallback
+        if "/" in s:
+            cand = s.rsplit("/", 1)[-1]
+            cand = re.sub(r"[^a-z0-9]+", "_", cand).strip("_")
+            mapping = {
+                "debuff_immunity": "spell_immunity",
+                "spell_immunity": "spell_immunity",
+                "spell_block": "spell_block",
+                "spell_reflection": "spell_reflection",
+            }
+            return mapping.get(cand)
+        return None
+
+    @staticmethod
+    def _facts_from_description(desc: str) -> dict:
+        t = (desc or "").lower()
+        facts = {}
+        # Only the two booleans you asked for
+        if "does not pierce" in t or "cannot pierce" in t:
+            facts["pierces"] = False
+        elif "pierces" in t:
+            facts["pierces"] = True
+
+        if "does not ignore" in t or "cannot ignore" in t:
+            facts["ignores"] = False
+        elif "ignores" in t:
+            facts["ignores"] = True
+
+        return facts
+
     def process_spellcard_wrapper(self, spellcard_wrapper: WebElement):
         """
         Given a Selenium WebElement for <div class="spellcard-wrapper">,
@@ -340,6 +380,48 @@ class HeroScraper(BaseScraper):
             })
         if hotkeys:
             data["hotkeys"] = hotkeys
+
+        # — Header interactions (Spell Immunity / Spell Block / Spell Reflection) —
+        try:
+            header_bar = spellcard.find_element(By.CSS_SELECTOR, "div[style*='border-bottom']")
+            right_box = header_bar.find_element(By.CSS_SELECTOR, "div[style*='float:right']")
+
+            interactions = {}
+            # Each interaction is an <a title="..."><img ...></a>
+            for a in right_box.find_elements(By.TAG_NAME, "a"):
+                title = (a.get_attribute("title") or "").strip()
+                alt = ""
+                try:
+                    alt = (a.find_element(By.TAG_NAME, "img").get_attribute("alt") or "").strip()
+                except NoSuchElementException:
+                    pass
+
+                # Prefer title; fallback to alt; finally href for key normalization
+                description = title or alt
+                key = self._normalize_interaction_key(title) or self._normalize_interaction_key(
+                    alt) or self._normalize_interaction_key(a.get_attribute("href") or "")
+                if not key or not description:
+                    continue
+
+                facts = self._facts_from_description(description)
+                if not facts:  # Only keep entries that actually give us pierces/ignores info
+                    continue
+
+                if key not in interactions:
+                    interactions[key] = {}
+
+                # Set description once; keep the first (usually most precise) tooltip we see
+                interactions[key].setdefault("description", description)
+
+                # Merge booleans (later entries may refine, but usually they match)
+                for k, v in facts.items():
+                    interactions[key][k] = v
+
+            if interactions:
+                data["interactions"] = interactions
+
+        except NoSuchElementException:
+            pass
 
         # — Icon —
         # pick the first image in a div whose class starts with "target_"
@@ -805,4 +887,4 @@ if __name__ == '__main__':
     # TODO: Kez, Lone Druid, Slark, Troll Warlord, Weaver, Chen, Silencer, Winter Wyvern, Nyx Assassin, Sand King
     hero_scraper = HeroScraper()
     #hero_scraper.scrape_hero_page("tiny")
-    hero_scraper.scrape_all_heroes("hero_data")
+    hero_scraper.scrape_all_heroes("heroes")
