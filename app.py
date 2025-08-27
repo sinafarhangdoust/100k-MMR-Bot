@@ -8,7 +8,7 @@ from tools.dota_db import DotaDB
 
 def chat_setup():
     reasoning = {'reasoning': {'effort': 'minimal', 'summary': None}}
-    llm_agent = get_llm_agent(model='gpt-5-nano')
+    llm_agent = get_llm_agent(model='gpt-4.1-mini')
     cl.user_session.set('llm_agent', llm_agent)
     cl.user_session.set('chat_history', [])
     cl.user_session.set('dota_db', DotaDB())
