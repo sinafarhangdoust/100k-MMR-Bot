@@ -12,6 +12,7 @@ from constants import (
     SHOP_ITEMS,
     ENCHANTMENT_ITEMS,
 )
+from advisors.item_build_advisor import ItemAdvisor
 
 def get_hero(hero_name: HEROES = Field(description="The name of the hero")):
     """ Returns full details about a specific hero """
@@ -32,3 +33,9 @@ def get_item(
     """ Returns full details about a needed item """
     dota_db : DotaDB = cl.user_session.get('dota_db')
     return dota_db.get_item(item_type=item_type, item_name=item_name)
+
+def get_hero_item_suggestion(hero_name: HEROES = Field(description="The name of the hero")):
+    """ Returns suggested items that a hero should buy for each stage """
+    item_advisor = ItemAdvisor()
+    hero_name = hero_name[0].upper() + hero_name[1:]
+    return item_advisor.get_item_suggestion(hero_name)
