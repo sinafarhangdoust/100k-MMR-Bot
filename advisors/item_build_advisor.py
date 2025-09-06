@@ -36,21 +36,28 @@ class OpenDotaEnhanced(OpenDota):
 class ItemAdvisor:
 
     def __init__(self):
-        self.opendota_client = OpenDotaEnhanced(data_dir='./')
+        self.base_image_url = "https://cdn.cloudflare.steamstatic.com"
+        self.opendota_client = OpenDotaEnhanced(data_dir='./cache')
         self.hero2id, self.id2hero = self._get_hero_to_id_mapping()
         self.item2id, self.id2item = self._get_item_to_id_mapping()
 
+
     def _get_hero_to_id_mapping(self):
-        heroes = self.opendota_client.get_heroes()
-        hero2id = {hero['localized_name']: hero['id'] for hero in heroes}
-        id2hero = {hero['id']: hero['localized_name'] for hero in heroes}
+        heroes = self.opendota_client.get_constants('heroes').get('heroes')
+        hero2id = {hero['localized_name']: hero['id'] for id, hero in heroes.items()}
+        id2hero = {hero['id']: hero for id, hero in heroes.items()}
 
         return hero2id, id2hero
 
     def _get_item_to_id_mapping(self):
-        items = self.opendota_client.get_items()
-        item2id = {item['localized_name']: item['id'] for item in items}
-        id2item = {item['id']: item['localized_name'] for item in items}
+        keep = {"abilities", "cost", "dname", "hint", "img", "id"}
+        items = self.opendota_client.get_constants('items').get('items')
+        for name, item_dict in items.items():
+            items[name] = {k: v for k, v in item_dict.items() if k in keep}
+
+        item2id = {item['dname']: item['id'] for name, item in items.items() if 'dname' in item}
+        id2item = {item['id']: item for name, item in items.items() if 'dname' in item}
+
         return item2id, id2item
 
     def get_hero_name(self, hero_id: int or str):
@@ -79,5 +86,7 @@ class ItemAdvisor:
                 item_name = self.get_item_name(item_id)
                 item_popularity[stage].append((frequency, item_name))
             item_popularity[stage].sort(key=lambda x: x[0], reverse=True)
+            item_popularity[stage] = [(item[1]['dname'], item[1]) for item in item_popularity[stage]]
+
 
         return item_popularity
