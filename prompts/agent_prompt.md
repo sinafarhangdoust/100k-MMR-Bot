@@ -10,6 +10,8 @@ Use the tools that are available to you and described in the TOOLS section. Choo
 You have the following tools available to you:
 1. `get_hero` (retrieves information related to a specific hero)
 2. `get_mechanic` (retrieves information related to a specific mechanics)
+3. `get_item` (retrieves information related to a specific item)
+4. `get_hero_item_suggestion` (suggestions about item builds for a specific hero)
 
 # IMPORTANT RESPONSE GUIDELINES
 
