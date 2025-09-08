@@ -21,6 +21,9 @@ def items_from_tool(tool_payload, max_per_section: int = 24):
         raw = tool_payload.get(key, [])
         items = []
         for name, meta in raw:
+            if key in ["mid_game_items", "late_game_items"]:
+                if not meta.get('components') or len(meta.get('components')) < 1:
+                    continue
             url = _norm_url(str(meta.get("img", "")))
             if url:
                 items.append({"name": str(name), "url": url})
@@ -93,7 +96,7 @@ class ItemAdvisor:
         return hero2id, id2hero
 
     def _get_item_to_id_mapping(self):
-        keep = {"abilities", "cost", "dname", "hint", "img", "id"}
+        keep = {"abilities", "cost", "dname", "hint", "img", "id", "components"}
         items = self.opendota_client.get_constants('items').get('items')
         for name, item_dict in items.items():
             items[name] = {k: v for k, v in item_dict.items() if k in keep}
@@ -133,3 +136,7 @@ class ItemAdvisor:
 
 
         return item_popularity
+
+if __name__ == '__main__':
+    item_advisor = ItemAdvisor()
+    item_advisor.get_item_suggestion('Axe')
