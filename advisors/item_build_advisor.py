@@ -4,6 +4,49 @@ from typing import Dict
 
 from opendota import OpenDota
 
+def _norm_url(img: str) -> str:
+    if not img:
+        return ""
+    return img if img.startswith("http") else f"{ItemAdvisor.base_image_url}{img}"
+
+def items_from_tool(tool_payload, max_per_section: int = 24):
+    mapping = [
+        ("Start", "start_game_items"),
+        ("Early", "early_game_items"),
+        ("Mid", "mid_game_items"),
+        ("Late", "late_game_items"),
+    ]
+    sections = []
+    for title, key in mapping:
+        raw = tool_payload.get(key, [])
+        items = []
+        for name, meta in raw:
+            url = _norm_url(str(meta.get("img", "")))
+            if url:
+                items.append({"name": str(name), "url": url})
+                if max_per_section and len(items) >= max_per_section:
+                    break
+        if items:
+            sections.append({"title": title, "items": items})
+    return sections
+
+def normalize_hero_name(hero_name: str) -> str:
+    if '_' in hero_name:
+        parts = hero_name.split('_')
+        for i, part in enumerate(parts):
+            if i in [0, len(parts) - 1]:
+                parts[i] = part[0].upper() + part[1:]
+        if hero_name == 'anti_mage':
+            hero_name = '-'.join(parts)
+        elif hero_name == 'natures_prophet':
+            hero_name = "Nature's Prophet"
+        else:
+            hero_name = ' '.join(parts)
+    else:
+        hero_name = hero_name[0].upper() + hero_name[1:]
+
+    return hero_name
+
 class OpenDotaEnhanced(OpenDota):
 
     def get_item_popularity(self, hero_id: int or str, force: bool = False):
@@ -34,9 +77,9 @@ class OpenDotaEnhanced(OpenDota):
         return json_data
 
 class ItemAdvisor:
+    base_image_url = "https://cdn.cloudflare.steamstatic.com"
 
     def __init__(self):
-        self.base_image_url = "https://cdn.cloudflare.steamstatic.com"
         self.opendota_client = OpenDotaEnhanced(data_dir='./cache')
         self.hero2id, self.id2hero = self._get_hero_to_id_mapping()
         self.item2id, self.id2item = self._get_item_to_id_mapping()

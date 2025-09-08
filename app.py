@@ -2,6 +2,7 @@ import chainlit as cl
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
+from advisors.item_build_advisor import items_from_tool
 from agents.agents import get_llm_agent
 from tools import tools_mapping
 from tools.dota_db import DotaDB
@@ -80,13 +81,26 @@ async def main(message: cl.Message):
             for tool_call in event['data']['output'].tool_calls:
                 tool_to_run = tools_mapping[tool_call['name']]
                 tool_args = tool_call['args']
-                tool_response = ToolMessage(content=tool_to_run(**tool_args), tool_call_id=tool_call['id'])
-                tool_responses.append(tool_response)
+                if tool_call['name'] == 'get_hero_item_suggestion':
+                    sections = items_from_tool(tool_to_run(**tool_args))
+                    tool_responses.append((tool_call['name'], sections))
+                    if sections:
+                        el = cl.CustomElement(
+                            name="ItemSections",
+                            props={"sections": sections, "size": 28, "cols": 4, "dense": True},
+                            display="inline"
+                        )
+                        await cl.Message(content=f"Suggested items to buy for {tool_args['hero_name']} are:", elements=[el]).send()
+                else:
+                    tool_response = ToolMessage(content=tool_to_run(**tool_args), tool_call_id=tool_call['id'])
+                    tool_responses.append((tool_call['name'], tool_response))
 
     # call again the llm agent if there are any tool_responses
-    if tool_responses:
+    if tool_responses and len([response[1] for response in tool_responses if response[0] != 'get_hero_item_suggestion']) > 0:
 
-        cl.user_session.get('chat_history').extend(tool_responses)
+        cl.user_session.get('chat_history').extend(
+            [response[1] for response in tool_responses if response[0] != 'get_hero_item_suggestion']
+        )
         async for event in llm_agent.astream_events(
                 {
                     'user_message': user_message,
@@ -101,11 +115,9 @@ async def main(message: cl.Message):
                 await tmp_message.stream_token(token=event['data']['chunk'].content)
                 assistant_message += event['data']['chunk'].content
 
-
-
     tmp_message.content = assistant_message
-    await tmp_message.send()
-
+    if tmp_message.content:
+        await tmp_message.send()
 
     cl.user_session.get('chat_history').append(AIMessage(assistant_message))
 
