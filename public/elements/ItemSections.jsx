@@ -1,12 +1,21 @@
 export default function ItemSections() {
   const {
-    sections = [],    // [{ title: "Start", items: [{name,url}, ...] }, ...]
-    size = 28,        // icon size in px
-    cols = 4,         // items per row (responsive enough for chat width)
-    dense = true      // tighter spacing
+    sections = [],     // [{ title, items: [{name,url}] }]
+    size = 28,         // icon size (px)
+    cols = 4,          // columns
+    dense = true       // spacing
   } = props;
 
-  const wrap = (s) => s?.trim() || "";
+  if (!sections.length) return null;
+
+  const wrap = (s) => s?.toString().trim() || "";
+
+  // vertical & horizontal padding per chip
+  const pY = dense ? 6 : 8;
+  const pX = dense ? 8 : 10;
+
+  // FIXED chip height: icon + vertical padding
+  const rowH = size + pY * 2;
 
   const page = {
     display: "flex",
@@ -16,22 +25,28 @@ export default function ItemSections() {
 
   const sectionBox = {
     display: "grid",
-    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
     gap: dense ? 8 : 12,
-    alignItems: "start"
+    alignItems: "stretch",
+    // 👇 Force every row to the same height
+    gridAutoRows: `${rowH}px`
   };
 
   const chip = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: dense ? "6px 8px" : "8px 10px",
+    padding: `${pY}px ${pX}px`,
     borderRadius: 12,
     background: "rgba(0,0,0,0.35)",
     color: "inherit",
     backdropFilter: "blur(4px)",
     WebkitBackdropFilter: "blur(4px)",
-    minWidth: 0  // allow text wrapping
+    // 👇 Fill the entire grid cell so all chips are equal size
+    width: "100%",
+    height: "100%",
+    boxSizing: "border-box",
+    minWidth: 0
   };
 
   const imgStyle = {
@@ -42,13 +57,18 @@ export default function ItemSections() {
     flex: "0 0 auto"
   };
 
+  // 👇 Single-line, ellipsized names to keep uniform height
+  const nameStyle = {
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis"
+  };
+
   const titleStyle = {
     fontWeight: 600,
     opacity: 0.9,
     marginBottom: 6
   };
-
-  if (!sections.length) return null;
 
   return (
     <div style={page}>
@@ -68,7 +88,7 @@ export default function ItemSections() {
                   style={imgStyle}
                   onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
                 />
-                <span style={{wordBreak: "break-word"}}>{wrap(it.name)}</span>
+                <span style={nameStyle}>{wrap(it.name)}</span>
               </div>
             ))}
           </div>

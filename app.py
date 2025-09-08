@@ -2,7 +2,7 @@ import chainlit as cl
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from advisors.item_build_advisor import items_from_tool
+from advisors.item_build_advisor import items_from_tool, normalize_hero_name
 from agents.agents import get_llm_agent
 from tools import tools_mapping
 from tools.dota_db import DotaDB
@@ -90,7 +90,7 @@ async def main(message: cl.Message):
                             props={"sections": sections, "size": 28, "cols": 4, "dense": True},
                             display="inline"
                         )
-                        await cl.Message(content=f"Suggested items to buy for {tool_args['hero_name']} are:", elements=[el]).send()
+                        await cl.Message(content=f"Suggested items to buy for {normalize_hero_name(tool_args['hero_name'])} are:", elements=[el]).send()
                 else:
                     tool_response = ToolMessage(content=tool_to_run(**tool_args), tool_call_id=tool_call['id'])
                     tool_responses.append((tool_call['name'], tool_response))
